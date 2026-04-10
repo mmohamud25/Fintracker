@@ -346,6 +346,7 @@ function NetWorth({assets,setAssets,liabilities,setLiabilities,netWorthHistory,s
   const aPie=ATYPES.map(t=>({name:t,value:assets.filter(a=>a.type===t).reduce((x,b)=>x+b.value,0)})).filter(d=>d.value>0);
   const lPie=LTYPES.map(t=>({name:t,value:liabilities.filter(l=>l.type===t).reduce((x,b)=>x+b.value,0)})).filter(d=>d.value>0);
   return(
+    <>
     <div style={{display:"flex",flexDirection:"column",gap:18}}>
       <div><h2 style={{fontSize:22,fontWeight:700,color:G.text,marginBottom:3}}>Net Worth</h2><p style={{color:G.muted,fontSize:13}}>Assets minus liabilities</p></div>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:12}}><StatCard label="Total Assets" value={fmt(tA)} color={G.teal} icon="📈"/><StatCard label="Total Liabilities" value={fmt(tL)} color={G.red} icon="📉"/><StatCard label="Net Worth" value={fmt(nw)} color={nw>=0?G.teal:G.red} icon="💎"/></div>
@@ -362,6 +363,7 @@ function NetWorth({assets,setAssets,liabilities,setLiabilities,netWorthHistory,s
       </div>
     </div>
     {editItem&&<Modal title={`Edit ${editItem.kind==="asset"?"Asset":"Liability"}`} onClose={()=>setEditItem(null)}><div style={{display:"flex",flexDirection:"column",gap:12}}><Field label="Name"><Inp value={editItem.item.name} onChange={e=>setEditItem({...editItem,item:{...editItem.item,name:e.target.value}})}/></Field><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Field label="Value ($)"><Inp type="number" value={editItem.item.value} onChange={e=>setEditItem({...editItem,item:{...editItem.item,value:e.target.value}})}/></Field><Field label="Type"><Sel value={editItem.item.type} onChange={e=>setEditItem({...editItem,item:{...editItem.item,type:e.target.value}})}>{(editItem.kind==="asset"?ATYPES:LTYPES).map(t=><option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>)}</Sel></Field></div><div style={{display:"flex",gap:10,marginTop:6}}><Btn onClick={saveEditItem} style={{flex:1}}>Save Changes</Btn><Btn onClick={()=>setEditItem(null)} outline style={{flex:1}}>Cancel</Btn></div></div></Modal>}
+    </>
   );
 }
 
@@ -447,6 +449,7 @@ function Settings({onClose,isDark,setIsDark,allData,onLock,onClearData}){
   const handleImport=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=async ev=>{try{const d=JSON.parse(ev.target.result);for(const k of["transactions","budgets","subscriptions","goals","assets","liabilities","cards"])if(d[k])await store.set(k,d[k]);say("✅ Imported! Refresh the page to load your data.");}catch{say("❌ Invalid backup file.","3500","err");}};r.readAsText(f);};
   const changePin=async()=>{const saved=await store.get("pin");if(saved&&oldPin!==saved){say("❌ Current PIN is incorrect.","3500","err");return;}if(newPin1.length!==4||!/^\d{4}$/.test(newPin1)){say("❌ PIN must be exactly 4 digits.","3500","err");return;}if(newPin1!==newPin2){say("❌ PINs don't match.","3500","err");return;}await store.set("pin",newPin1);say("✅ PIN updated successfully!");setPinModal(false);setOldPin("");setNewPin1("");setNewPin2("");};
   return(
+    <>
     <Modal title="⚙️ Settings" onClose={onClose}><div style={{display:"flex",flexDirection:"column",gap:20}}>
       {msg&&<div style={{background:msgType==="err"?`${G.red}12`:`${G.teal}12`,border:`1px solid ${msgType==="err"?G.red:G.teal}30`,borderRadius:10,padding:"10px 14px",fontSize:12,color:msgType==="err"?G.red:G.teal}}>{msg}</div>}
       <div><div style={{fontWeight:600,fontSize:13,color:G.text,marginBottom:12}}>Appearance</div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px",background:G.card2,borderRadius:10,border:`1px solid ${G.border}`}}><div><div style={{fontWeight:500,fontSize:13,color:G.text}}>{isDark?"🌙 Dark Mode":"☀️ Light Mode"}</div><div style={{fontSize:11,color:G.muted}}>Toggle app theme</div></div><button onClick={()=>setIsDark(d=>!d)} style={{width:44,height:24,borderRadius:99,background:isDark?G.teal:G.border,border:"none",cursor:"pointer",position:"relative",transition:"background .2s"}}><div style={{width:18,height:18,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:isDark?22:3,transition:"left .2s"}}/></button></div></div>
@@ -454,9 +457,9 @@ function Settings({onClose,isDark,setIsDark,allData,onLock,onClearData}){
       <div><div style={{fontWeight:600,fontSize:13,color:G.text,marginBottom:12}}>Security</div><div style={{display:"flex",flexDirection:"column",gap:8}}><Btn outline onClick={onLock} style={{width:"100%"}}>🔒 Lock App Now</Btn><Btn outline onClick={()=>setPinModal(true)} style={{width:"100%"}}>🔑 Change PIN</Btn></div></div>
       <div><div style={{fontWeight:600,fontSize:13,color:G.text,marginBottom:4}}>About</div><div style={{background:G.card2,border:`1px solid ${G.border}`,borderRadius:10,padding:"12px 14px",fontSize:12,color:G.muted}}>💼 <strong style={{color:G.text}}>FinTrack Pro</strong> — Personal Finance Tracker. Your data is stored securely in your personal Supabase database. No ads. No tracking.</div></div>
       <div style={{borderTop:`1px solid ${G.border}`,paddingTop:16}}><div style={{fontWeight:600,fontSize:13,color:G.red,marginBottom:8}}>Danger Zone</div><Btn color={G.red} outline onClick={onClearData} style={{width:"100%"}}>🗑️ Clear All Data</Btn></div>
-    </div>
+    </div></Modal>
     {pinModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",backdropFilter:"blur(6px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1100,padding:20}} onClick={e=>e.target===e.currentTarget&&setPinModal(false)}><div style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:20,padding:24,width:"100%",maxWidth:380,boxShadow:"0 20px 60px rgba(0,0,0,.2)"}}><div style={{fontWeight:700,fontSize:16,color:G.text,marginBottom:20}}>🔑 Change PIN</div><div style={{display:"flex",flexDirection:"column",gap:12}}><Field label="Current PIN"><Inp type="password" inputMode="numeric" maxLength={4} value={oldPin} onChange={e=>setOldPin(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="••••"/></Field><Field label="New PIN (4 digits)"><Inp type="password" inputMode="numeric" maxLength={4} value={newPin1} onChange={e=>setNewPin1(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="••••"/></Field><Field label="Confirm New PIN"><Inp type="password" inputMode="numeric" maxLength={4} value={newPin2} onChange={e=>setNewPin2(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="••••"/></Field><div style={{display:"flex",gap:10,marginTop:6}}><Btn onClick={changePin} style={{flex:1}}>Update PIN</Btn><Btn onClick={()=>{setPinModal(false);setOldPin("");setNewPin1("");setNewPin2("");}} outline style={{flex:1}}>Cancel</Btn></div></div></div></div>}
-    </Modal>
+    </>
   );
 }
 
