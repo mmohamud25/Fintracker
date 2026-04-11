@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, createContext, useContext } from "react";
-import { AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, BarChart, Bar as RBar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import * as Papa from "papaparse";
 
 const LIGHT={bg:"#F0F4F8",card:"#FFFFFF",card2:"#F7F9FC",border:"#E2E8F0",teal:"#0D9488",gold:"#D97706",red:"#DC2626",text:"#1A202C",muted:"#64748B",purple:"#7C3AED",green:"#16A34A",shadow:"0 1px 6px rgba(0,0,0,.07)",sidebar:"#FFFFFF"};
@@ -70,8 +70,12 @@ const CATEGORIES=["Housing","Food","Transport","Entertainment","Health","Shoppin
 const CAT_COLOR={Housing:"#DC2626",Food:"#D97706",Transport:"#0D9488",Entertainment:"#7C3AED",Health:"#EA580C",Shopping:"#DB2777",Utilities:"#0284C7",Education:"#16A34A",Salary:"#0D9488",Freelance:"#D97706",Investment:"#7C3AED",Other:"#64748B"};
 const CARD_GRADS=[{a:"#1a1a2e",b:"#16213e"},{a:"#922b21",b:"#641e16"},{a:"#1a3a5c",b:"#0d2137"},{a:"#9a7509",b:"#6d5004"},{a:"#00695c",b:"#004d40"},{a:"#4834d4",b:"#2c1fa8"},{a:"#2d3436",b:"#1a1f20"},{a:"#6d1f5e",b:"#4a1040"}];
 
-const fmt=n=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(n);
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
+const todayStr=()=>new Date().toISOString().slice(0,10);
+const yesterdayStr=()=>new Date(Date.now()-86400000).toISOString().slice(0,10);
+const monthKey=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+const NW_MILESTONES=[1000,5000,10000,25000,50000,100000,250000,500000,1000000];
+const CURRENCIES=[{code:"USD",symbol:"$",name:"US Dollar"},{code:"EUR",symbol:"€",name:"Euro"},{code:"GBP",symbol:"£",name:"British Pound"},{code:"SAR",symbol:"\u0631\u06cc\u0627\u0644",name:"Saudi Riyal"},{code:"AED",symbol:"\u062f.\u0625",name:"UAE Dirham"},{code:"SOS",symbol:"Sh",name:"Somali Shilling"},{code:"ETB",symbol:"Br",name:"Ethiopian Birr"},{code:"KES",symbol:"Ksh",name:"Kenyan Shilling"},{code:"TRY",symbol:"\u20ba",name:"Turkish Lira"},{code:"CAD",symbol:"CA$",name:"Canadian Dollar"},{code:"AUD",symbol:"A$",name:"Australian Dollar"},{code:"JPY",symbol:"\u00a5",name:"Japanese Yen"}];
 const fmtM=m=>m>=12?`${Math.floor(m/12)}y ${m%12}m`:`${m}mo`;
 
 function calcPayoff(cards,extra,method){
@@ -166,6 +170,7 @@ function Dashboard({transactions,subscriptions,goals,netWorthHistory}){
   const pm=`${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth()+1).padStart(2,"0")}`;
   const mt=transactions.filter(t=>t.date.startsWith(tm));const prevExp=transactions.filter(t=>t.date.startsWith(pm)&&t.type==="expense").reduce((a,b)=>a+b.amount,0);
   const income=mt.filter(t=>t.type==="income").reduce((a,b)=>a+b.amount,0);const expense=mt.filter(t=>t.type==="expense").reduce((a,b)=>a+b.amount,0);const net=income-expense;
+  const weeks=Array.from({length:8},(_,i)=>{const end=new Date();end.setDate(end.getDate()-i*7);const start=new Date(end);start.setDate(start.getDate()-6);const s=start.toISOString().slice(0,10);const e=end.toISOString().slice(0,10);return{week:`W${8-i}`,spent:transactions.filter(t=>t.type==="expense"&&t.date>=s&&t.date<=e).reduce((a,b)=>a+b.amount,0)};}).reverse();
   const months=Array.from({length:6},(_,i)=>{const d=new Date(now.getFullYear(),now.getMonth()-5+i,1);const k=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;return{month:d.toLocaleString("default",{month:"short"}),income:transactions.filter(t=>t.date.startsWith(k)&&t.type==="income").reduce((a,b)=>a+b.amount,0),expenses:transactions.filter(t=>t.date.startsWith(k)&&t.type==="expense").reduce((a,b)=>a+b.amount,0)};});
   const cm={};mt.filter(t=>t.type==="expense").forEach(t=>{cm[t.category]=(cm[t.category]||0)+t.amount;});
   const pieData=Object.entries(cm).map(([name,value])=>({name,value:parseFloat(value.toFixed(2))})).sort((a,b)=>b.value-a.value).slice(0,6);
@@ -206,6 +211,18 @@ function Dashboard({transactions,subscriptions,goals,netWorthHistory}){
           </>:<div style={{color:G.muted,fontSize:12,textAlign:"center",paddingTop:50}}>No expenses yet</div>}
         </Card>
       </div>
+      <Card>
+        <div style={{fontWeight:600,marginBottom:14,fontSize:13,color:G.text}}>Weekly Spending (Last 8 Weeks)</div>
+        <ResponsiveContainer width="100%" height={160}>
+          <BarChart data={weeks}>
+            <CartesianGrid strokeDasharray="3 3" stroke={G.border}/>
+            <XAxis dataKey="week" tick={{fill:G.muted,fontSize:10}} axisLine={false} tickLine={false}/>
+            <YAxis tick={{fill:G.muted,fontSize:10}} axisLine={false} tickLine={false} tickFormatter={v=>fmt(v)}/>
+            <Tooltip formatter={v=>fmt(v)} contentStyle={{background:G.card,border:`1px solid ${G.border}`,borderRadius:8,fontSize:12}}/>
+            <RBar dataKey="spent" name="Spending" fill={G.red} radius={[4,4,0,0]} fillOpacity={0.8}/>
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
       {netWorthHistory.length>1&&<Card><div style={{fontWeight:600,marginBottom:14,fontSize:13,color:G.text}}>Net Worth History</div><ResponsiveContainer width="100%" height={160}><AreaChart data={netWorthHistory}><defs><linearGradient id="gnw" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={G.purple} stopOpacity={.25}/><stop offset="95%" stopColor={G.purple} stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke={G.border}/><XAxis dataKey="date" tick={{fill:G.muted,fontSize:10}} axisLine={false} tickLine={false}/><YAxis tick={{fill:G.muted,fontSize:10}} axisLine={false} tickLine={false} tickFormatter={v=>`$${(v/1000).toFixed(0)}k`}/><Tooltip content={<TT/>}/><Area type="monotone" dataKey="netWorth" name="Net Worth" stroke={G.purple} fill="url(#gnw)" strokeWidth={2}/></AreaChart></ResponsiveContainer></Card>}
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:12}}>
         <StatCard label="Subscriptions/mo" value={fmt(subscriptions.reduce((a,b)=>a+b.amount,0))} color={G.purple} icon="🔄"/>
@@ -225,6 +242,7 @@ function Transactions({transactions,setTransactions,showToast}){
   const filtered=transactions.filter(t=>filter==="all"||t.type===filter).filter(t=>t.desc.toLowerCase().includes(search.toLowerCase())||t.category.toLowerCase().includes(search.toLowerCase())).sort((a,b)=>b.date.localeCompare(a.date));
   const add=async()=>{if(!form.date||!form.desc||!form.amount)return;const u=[{id:uid(),...form,amount:parseFloat(form.amount)},...transactions];setTransactions(u);await store.set("transactions",u);setModal(false);setForm({date:today,desc:"",amount:"",type:"expense",category:"Food",note:""});showToast("Transaction added");};
   const del=async id=>{if(!window.confirm("Delete this transaction?"))return;const u=transactions.filter(t=>t.id!==id);setTransactions(u);await store.set("transactions",u);showToast("Deleted");};
+  const delAll=async()=>{if(!window.confirm(`Delete ALL ${transactions.length} transactions?`))return;setTransactions([]);await store.set("transactions",[]);showToast("All transactions deleted");};
   const openEdit=t=>{setEditTxn({...t,amount:String(t.amount)});};
   const saveEdit=async()=>{if(!editTxn.date||!editTxn.desc||!editTxn.amount)return;const u=transactions.map(t=>t.id===editTxn.id?{...editTxn,amount:parseFloat(editTxn.amount)}:t);setTransactions(u);await store.set("transactions",u);setEditTxn(null);showToast("Transaction updated");};
   const handleCSV=e=>{const f=e.target.files[0];if(!f)return;Papa.parse(f,{header:true,skipEmptyLines:true,complete:r=>{setCsvData(r);const c=r.meta.fields||[];const g=ks=>c.find(x=>ks.some(k=>x.toLowerCase().includes(k)))||"";setMapping({date:g(["date","time","posted"]),desc:g(["desc","name","merchant","memo","payee"]),amount:g(["amount","debit","credit","sum"]),type:g(["type","credit","debit"]),category:g(["category","cat"])});setCsvMsg(`Loaded ${r.data.length} rows.`);},error:()=>setCsvMsg("Failed to parse.")});};
@@ -232,7 +250,7 @@ function Transactions({transactions,setTransactions,showToast}){
   const cols=csvData?.meta?.fields||[];
   return(
     <div style={{display:"flex",flexDirection:"column",gap:18}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><h2 style={{fontSize:22,fontWeight:700,color:G.text,marginBottom:3}}>Transactions</h2><p style={{color:G.muted,fontSize:13}}>{filtered.length} records</p></div><div style={{display:"flex",gap:10}}><Btn outline onClick={()=>setCsvModal(true)}>📂 Import CSV</Btn><Btn onClick={()=>setModal(true)}>+ Add</Btn></div></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}><div><h2 style={{fontSize:22,fontWeight:700,color:G.text,marginBottom:3}}>Transactions</h2><p style={{color:G.muted,fontSize:13}}>{filtered.length} records</p></div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{transactions.length>0&&<Btn small outline color={G.red} onClick={delAll}>🗑️ Delete All</Btn>}<Btn small outline onClick={()=>setCsvModal(true)}>📂 Import CSV</Btn><Btn small onClick={()=>setModal(true)}>+ Add</Btn></div></div>
       <div style={{display:"flex",gap:10}}><Inp value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..." style={{flex:1}}/><Sel value={filter} onChange={e=>setFilter(e.target.value)} style={{minWidth:130}}><option value="all">All</option><option value="income">Income</option><option value="expense">Expenses</option></Sel></div>
       {isMobile?(
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
@@ -265,6 +283,41 @@ function Transactions({transactions,setTransactions,showToast}){
   );
 }
 
+
+/* ── RECURRING TRANSACTIONS ── */
+function Recurring({transactions,setTransactions,recurring,setRecurring,showToast,fmt}){
+  const G=useG();const[modal,setModal]=useState(false);
+  const[form,setForm]=useState({desc:"",amount:"",type:"income",category:"Salary",dayOfMonth:"1"});
+  const add=async()=>{if(!form.desc||!form.amount)return;const u=[...recurring,{id:uid(),...form,amount:parseFloat(form.amount),dayOfMonth:parseInt(form.dayOfMonth),active:true,lastRun:""}];setRecurring(u);await store.set("recurring",u);setModal(false);setForm({desc:"",amount:"",type:"income",category:"Salary",dayOfMonth:"1"});showToast("Recurring entry added");};
+  const del=async id=>{if(!window.confirm("Remove this recurring entry?"))return;const u=recurring.filter(r=>r.id!==id);setRecurring(u);await store.set("recurring",u);showToast("Removed");};
+  const toggle=async id=>{const u=recurring.map(r=>r.id===id?{...r,active:!r.active}:r);setRecurring(u);await store.set("recurring",u);};
+  const runNow=async r=>{const t={id:uid(),date:todayStr(),desc:r.desc,amount:r.amount,type:r.type,category:r.category,note:"[Recurring]"};const u=[t,...transactions];setTransactions(u);await store.set("transactions",u);const ru=recurring.map(x=>x.id===r.id?{...x,lastRun:todayStr()}:x);setRecurring(ru);await store.set("recurring",ru);showToast(`Added: ${r.desc} — all tabs updated`);};
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:18}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><h2 style={{fontSize:22,fontWeight:700,color:G.text,marginBottom:3}}>Recurring Transactions</h2><p style={{color:G.muted,fontSize:13}}>Auto-scheduled monthly entries</p></div><Btn small onClick={()=>setModal(true)}>+ Add</Btn></div>
+      <div style={{background:`${G.teal}10`,border:`1px solid ${G.teal}30`,borderRadius:12,padding:"12px 16px",fontSize:12,color:G.muted}}>💡 Active entries run automatically on their scheduled day. Use "Run Now" to add immediately — all tabs update instantly.</div>
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {recurring.map(r=><Card key={r.id} style={{padding:16}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}><div style={{width:10,height:10,borderRadius:"50%",background:r.active?G.green:G.muted,flexShrink:0}}/><div><div style={{fontWeight:600,fontSize:14,color:G.text}}>{r.desc}</div><div style={{fontSize:11,color:G.muted}}>Day {r.dayOfMonth} monthly · {r.category} · {r.lastRun?`Last: ${r.lastRun}`:"Never run"}</div></div></div>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontFamily:"monospace",fontWeight:700,color:r.type==="income"?G.teal:G.red,fontSize:13}}>{r.type==="income"?"+":"-"}{fmt(r.amount)}</span>
+            <Btn small outline onClick={()=>runNow(r)}>▶ Run Now</Btn>
+            <button onClick={()=>toggle(r.id)} style={{background:"none",border:`1px solid ${G.border}`,borderRadius:6,padding:"3px 8px",cursor:"pointer",fontSize:11,color:G.muted}}>{r.active?"Pause":"Resume"}</button>
+            <button onClick={()=>del(r.id)} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:G.muted}}>✕</button>
+          </div>
+        </div></Card>)}
+        {!recurring.length&&<Card style={{textAlign:"center",padding:60}}><div style={{fontSize:44,marginBottom:10}}>🔁</div><div style={{fontWeight:600,color:G.text,marginBottom:4}}>No recurring entries</div><div style={{color:G.muted,fontSize:13}}>Add salary, rent, or other monthly transactions here</div></Card>}
+      </div>
+      {modal&&<Modal title="Add Recurring Transaction" onClose={()=>setModal(false)}><div style={{display:"flex",flexDirection:"column",gap:12}}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Field label="Type"><Sel value={form.type} onChange={e=>setForm({...form,type:e.target.value})}><option value="income">Income</option><option value="expense">Expense</option></Sel></Field><Field label="Day of Month (1-31)"><Inp type="number" min="1" max="31" value={form.dayOfMonth} onChange={e=>setForm({...form,dayOfMonth:e.target.value})}/></Field></div>
+        <Field label="Description"><Inp value={form.desc} onChange={e=>setForm({...form,desc:e.target.value})} placeholder="e.g. Monthly Salary"/></Field>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Field label="Amount"><Inp type="number" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})} placeholder="0.00"/></Field><Field label="Category"><Sel value={form.category} onChange={e=>setForm({...form,category:e.target.value})}>{CATEGORIES.map(c=><option key={c}>{c}</option>)}</Sel></Field></div>
+        <div style={{display:"flex",gap:10,marginTop:6}}><Btn onClick={add} style={{flex:1}}>Add</Btn><Btn onClick={()=>setModal(false)} outline style={{flex:1}}>Cancel</Btn></div>
+      </div></Modal>}
+    </div>
+  );
+}
+
 /* ── BUDGET ── */
 function Budget({transactions,budgets,setBudgets,showToast}){
   const G=useG();const [editing,setEditing]=useState(null);const [newLimit,setNewLimit]=useState("");const [addModal,setAddModal]=useState(false);const [newCat,setNewCat]=useState({category:"",limit:""});
@@ -278,7 +331,7 @@ function Budget({transactions,budgets,setBudgets,showToast}){
   const unusedCats=CATEGORIES.filter(c=>!budgets.find(b=>b.category===c));
   return(
     <div style={{display:"flex",flexDirection:"column",gap:18}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><h2 style={{fontSize:22,fontWeight:700,color:G.text,marginBottom:3}}>Monthly Budget</h2><p style={{color:G.muted,fontSize:13}}>{now.toLocaleString("default",{month:"long",year:"numeric"})}</p></div><div style={{display:"flex",gap:8,alignItems:"center"}}><div style={{fontFamily:"monospace",fontSize:16,fontWeight:700,color:spent>total?G.red:G.teal}}>{fmt(spent)}<span style={{color:G.muted,fontSize:12}}> / {fmt(total)}</span></div><Btn small onClick={()=>setAddModal(true)}>+ Add</Btn></div></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><h2 style={{fontSize:22,fontWeight:700,color:G.text,marginBottom:3}}>Monthly Budget</h2><p style={{color:G.muted,fontSize:13}}>{now.toLocaleString("default",{month:"long",year:"numeric"})}</p></div><div style={{display:"flex",gap:8,alignItems:"center"}}><div style={{fontFamily:"monospace",fontSize:16,fontWeight:700,color:spent>total?G.red:G.teal}}>{fmt(spent)}<span style={{color:G.muted,fontSize:12}}> / {fmt(total)}</span></div><Btn small outline onClick={async()=>{const pm=`${new Date().getFullYear()}-${String(new Date().getMonth()).padStart(2,"0")}`;const u=budgets.map(b=>{const prev=transactions.filter(t=>t.type==="expense"&&t.date.startsWith(pm)&&t.category===b.category).reduce((a,x)=>a+x.amount,0);return{...b,rollover:parseFloat(Math.max(0,b.limit-prev).toFixed(2))};});setBudgets(u);await store.set("budgets",u);showToast("Unused budget rolled over!");}}>↩️ Rollover</Btn><Btn small onClick={()=>setAddModal(true)}>+ Add</Btn></div></div>
       <Card><div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{fontSize:13,fontWeight:500,color:G.text}}>Overall Health</span><span style={{fontFamily:"monospace",fontSize:13,color:spent>total?G.red:G.teal}}>{total>0?((spent/total)*100).toFixed(0):0}%</span></div><Bar value={spent} max={total} color={spent>total?G.red:G.teal} h={10}/><div style={{display:"flex",justifyContent:"space-between",marginTop:6,fontSize:11,color:G.muted}}><span>{fmt(spent)} spent</span><span>{fmt(Math.max(0,total-spent))} left</span></div></Card>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
         {budgets.map(b=>{const s=getSpent(b.category);const over=s>b.limit;const p=Math.min(100,(s/b.limit)*100);const color=over?G.red:p>80?G.gold:CAT_COLOR[b.category]||G.teal;return <Card key={b.category}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{display:"flex",alignItems:"center",gap:7}}><div style={{width:9,height:9,borderRadius:"50%",background:CAT_COLOR[b.category]||G.teal}}/><span style={{fontWeight:600,fontSize:14,color:G.text}}>{b.category}</span></div><div style={{display:"flex",alignItems:"center",gap:6}}>{over&&<Pill label="Over" color={G.red}/>}<button onClick={()=>delCat(b.category)} style={{background:"none",border:"none",color:G.muted,cursor:"pointer",fontSize:12}}>✕</button></div></div><div style={{display:"flex",justifyContent:"space-between",marginBottom:7}}><span style={{fontFamily:"monospace",fontSize:13,color:over?G.red:G.text}}>{fmt(s)}</span><span style={{fontFamily:"monospace",fontSize:11,color:G.muted}}>/ {fmt(b.limit)}</span></div><Bar value={s} max={b.limit} color={color} h={7}/><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:9}}><span style={{fontSize:11,color:G.muted}}>{over?`${fmt(s-b.limit)} over`:`${fmt(b.limit-s)} left`}</span>{editing===b.category?<div style={{display:"flex",gap:5,alignItems:"center"}}><Inp type="number" value={newLimit} onChange={e=>setNewLimit(e.target.value)} style={{width:85,padding:"5px 8px",fontSize:12}}/><Btn small onClick={()=>save(b.category)}>Save</Btn><Btn small outline onClick={()=>setEditing(null)}>✕</Btn></div>:<Btn small outline onClick={()=>{setEditing(b.category);setNewLimit(b.limit);}}>Edit</Btn>}</div></Card>;})}
@@ -294,14 +347,18 @@ function Subscriptions({subscriptions,setSubscriptions,showToast}){
   const total=subscriptions.reduce((a,b)=>a+b.amount,0);const today=new Date().getDate();
   const add=async()=>{if(!form.name||!form.amount)return;const u=[...subscriptions,{id:uid(),...form,amount:parseFloat(form.amount),due:parseInt(form.due)}];setSubscriptions(u);await store.set("subscriptions",u);setModal(false);setForm({name:"",amount:"",due:"1",category:"Entertainment"});showToast("Subscription added");};
   const del=async id=>{if(!window.confirm("Remove this subscription?"))return;const u=subscriptions.filter(s=>s.id!==id);setSubscriptions(u);await store.set("subscriptions",u);showToast("Removed");};
+  const curMonth=`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,"0")}`;
+  const isPaid=s=>(s.paidMonths||[]).includes(curMonth);
+  const markPaid=async id=>{const u=subscriptions.map(s=>s.id===id?{...s,paidMonths:[...(s.paidMonths||[]).filter(m=>m!==curMonth),curMonth]}:s);setSubscriptions(u);await store.set("subscriptions",u);showToast("Marked as paid!");};
+  const unmarkPaid=async id=>{const u=subscriptions.map(s=>s.id===id?{...s,paidMonths:(s.paidMonths||[]).filter(m=>m!==curMonth)}:s);setSubscriptions(u);await store.set("subscriptions",u);showToast("Unmarked");};
   const saveEdit=async()=>{if(!editSub.name||!editSub.amount)return;const u=subscriptions.map(s=>s.id===editSub.id?{...editSub,amount:parseFloat(editSub.amount),due:parseInt(editSub.due)}:s);setSubscriptions(u);await store.set("subscriptions",u);setEditSub(null);showToast("Subscription updated");};
   const badge=due=>{const d=due-today;if(d===0)return{label:"Due Today",color:G.red};if(d===1)return{label:"Tomorrow",color:G.gold};if(d<=3)return{label:`${d}d left`,color:G.gold};if(d<0)return{label:"Paid",color:G.green};return null;};
   return(
     <div style={{display:"flex",flexDirection:"column",gap:18}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><h2 style={{fontSize:22,fontWeight:700,color:G.text,marginBottom:3}}>Subscriptions</h2><p style={{color:G.muted,fontSize:13}}>{subscriptions.length} recurring bills</p></div><div style={{display:"flex",gap:10}}><Btn outline onClick={async()=>{const r=await doAlerts(subscriptions);setAlertMsg(r.msg);setTimeout(()=>setAlertMsg(""),4000);}}>🔔 Alerts</Btn><Btn onClick={()=>setModal(true)}>+ Add</Btn></div></div>
       {alertMsg&&<div style={{background:`${G.teal}12`,border:`1px solid ${G.teal}30`,borderRadius:10,padding:"10px 14px",fontSize:12,color:G.teal}}>🔔 {alertMsg}</div>}
-      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:12}}><StatCard label="Monthly" value={fmt(total)} color={G.red} icon="🔄"/><StatCard label="Annual" value={fmt(total*12)} color={G.gold} icon="📅"/><StatCard label="Daily" value={fmt(total/30)} color={G.purple} icon="📊"/></div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:12}}>{subscriptions.map(s=>{const b=badge(s.due);return <Card key={s.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><div style={{fontWeight:700,fontSize:16,marginBottom:6,color:G.text}}>{s.name}</div><Pill label={s.category} color={CAT_COLOR[s.category]||G.muted}/>{b&&<div style={{marginTop:6}}><Pill label={b.label} color={b.color}/></div>}<div style={{marginTop:10,color:G.muted,fontSize:11}}>Day {s.due} monthly</div></div><div style={{textAlign:"right"}}><div style={{fontFamily:"monospace",fontSize:20,fontWeight:700,color:G.red}}>{fmt(s.amount)}</div><div style={{fontSize:11,color:G.muted,marginBottom:10}}>/month</div><div style={{display:"flex",gap:6,justifyContent:"flex-end"}}><button onClick={()=>setEditSub({...s,amount:String(s.amount),due:String(s.due)})} style={{background:"none",border:`1px solid ${G.border}`,color:G.muted,borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11}}>Edit</button><button onClick={()=>del(s.id)} style={{background:"none",border:`1px solid ${G.border}`,color:G.muted,borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11}}>Remove</button></div></div></div></Card>;})}
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:12}}><StatCard label="Monthly" value={fmt(total)} color={G.red} icon="🔄"/><StatCard label="Annual" value={fmt(total*12)} color={G.gold} icon="📅"/><StatCard label="Daily" value={fmt(total/30)} color={G.purple} icon="📊"/><StatCard label="Paid This Month" value={`${subscriptions.filter(isPaid).length}/${subscriptions.length}`} color={G.green} icon="✅"/></div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:12}}>{subscriptions.map(s=>{const b=badge(s.due);return <Card key={s.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><div style={{fontWeight:700,fontSize:16,marginBottom:6,color:G.text}}>{s.name}</div><Pill label={s.category} color={CAT_COLOR[s.category]||G.muted}/>{b&&<div style={{marginTop:6}}><Pill label={b.label} color={b.color}/></div>}<div style={{marginTop:10,color:G.muted,fontSize:11}}>Day {s.due} monthly</div></div><div style={{textAlign:"right"}}><div style={{fontFamily:"monospace",fontSize:20,fontWeight:700,color:G.red}}>{fmt(s.amount)}</div><div style={{fontSize:11,color:G.muted,marginBottom:10}}>/month</div><div style={{display:"flex",gap:6,justifyContent:"flex-end"}}><button onClick={()=>setEditSub({...s,amount:String(s.amount),due:String(s.due)})} style={{background:"none",border:`1px solid ${G.border}`,color:G.muted,borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11}}>Edit</button><button onClick={()=>del(s.id)} style={{background:"none",border:`1px solid ${G.border}`,color:G.muted,borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11}}>Remove</button>{isPaid(s)?<button onClick={()=>unmarkPaid(s.id)} style={{background:"none",border:`1px solid ${G.border}`,color:G.muted,borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:10}}>Unpay</button>:<button onClick={()=>markPaid(s.id)} style={{background:`${G.green}15`,border:`1px solid ${G.green}40`,color:G.green,borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:10,fontWeight:600}}>✓ Paid</button>}</div></div></div></Card>;})}
       {!subscriptions.length&&<Card style={{gridColumn:"1/-1",textAlign:"center",padding:60}}><div style={{fontSize:44,marginBottom:10}}>🔄</div><div style={{fontWeight:600,color:G.text,marginBottom:4}}>No subscriptions yet</div></Card>}</div>
       {modal&&<Modal title="Add Subscription" onClose={()=>setModal(false)}><div style={{display:"flex",flexDirection:"column",gap:12}}><Field label="Service Name"><Inp value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="e.g. Netflix"/></Field><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Field label="Amount ($)"><Inp type="number" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})} placeholder="0.00"/></Field><Field label="Billing Day"><Inp type="number" min="1" max="31" value={form.due} onChange={e=>setForm({...form,due:e.target.value})}/></Field></div><Field label="Category"><Sel value={form.category} onChange={e=>setForm({...form,category:e.target.value})}>{CATEGORIES.map(c=><option key={c}>{c}</option>)}</Sel></Field><div style={{display:"flex",gap:10,marginTop:6}}><Btn onClick={add} style={{flex:1}}>Add</Btn><Btn onClick={()=>setModal(false)} outline style={{flex:1}}>Cancel</Btn></div></div></Modal>}
       {editSub&&<Modal title="Edit Subscription" onClose={()=>setEditSub(null)}><div style={{display:"flex",flexDirection:"column",gap:12}}><Field label="Service Name"><Inp value={editSub.name} onChange={e=>setEditSub({...editSub,name:e.target.value})}/></Field><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Field label="Amount ($)"><Inp type="number" value={editSub.amount} onChange={e=>setEditSub({...editSub,amount:e.target.value})}/></Field><Field label="Billing Day"><Inp type="number" min="1" max="31" value={editSub.due} onChange={e=>setEditSub({...editSub,due:e.target.value})}/></Field></div><Field label="Category"><Sel value={editSub.category} onChange={e=>setEditSub({...editSub,category:e.target.value})}>{CATEGORIES.map(c=><option key={c}>{c}</option>)}</Sel></Field><div style={{display:"flex",gap:10,marginTop:6}}><Btn onClick={saveEdit} style={{flex:1}}>Save Changes</Btn><Btn onClick={()=>setEditSub(null)} outline style={{flex:1}}>Cancel</Btn></div></div></Modal>}
@@ -337,7 +394,9 @@ function NetWorth({assets,setAssets,liabilities,setLiabilities,netWorthHistory,s
   const tA=assets.reduce((a,b)=>a+b.value,0);const tL=liabilities.reduce((a,b)=>a+b.value,0);const nw=tA-tL;
   const ATYPES=["cash","investment","property","vehicle","other"];const LTYPES=["mortgage","auto","credit","student","medical","other"];
   const ACOL={cash:G.teal,investment:G.purple,property:G.gold,vehicle:"#EA580C",other:G.muted};const LCOL={mortgage:G.red,auto:"#EA580C",credit:"#DB2777",student:G.gold,medical:"#0284C7",other:G.muted};
-  const snap=async(a,l)=>{const tA=a.reduce((x,b)=>x+b.value,0);const tL=l.reduce((x,b)=>x+b.value,0);const s={date:new Date().toISOString().slice(0,10),netWorth:parseFloat((tA-tL).toFixed(2)),assets:parseFloat(tA.toFixed(2)),liabilities:parseFloat(tL.toFixed(2))};const ex=await store.get("netWorthHistory")||[];const u=[...ex.filter(h=>h.date!==s.date),s].sort((a,b)=>a.date.localeCompare(b.date)).slice(-24);setNetWorthHistory(u);await store.set("netWorthHistory",u);};
+  const snap=async(a,l)=>{const tA=a.reduce((x,b)=>x+b.value,0);const tL=l.reduce((x,b)=>x+b.value,0);const s={date:new Date().toISOString().slice(0,10),netWorth:parseFloat((tA-tL).toFixed(2)),assets:parseFloat(tA.toFixed(2)),liabilities:parseFloat(tL.toFixed(2))};const ex=await store.get("netWorthHistory")||[];const u=[...ex.filter(h=>h.date!==s.date),s].sort((a,b)=>a.date.localeCompare(b.date)).slice(-24);setNetWorthHistory(u);await store.set("netWorthHistory",u);
+    const newNW=parseFloat((tA-tL).toFixed(2));const hit=NW_MILESTONES.filter(m=>prevNW<m&&newNW>=m);if(hit.length)setMilestone(hit[hit.length-1]);
+  };
   const addA=async()=>{if(!aForm.name||!aForm.value)return;const u=[...assets,{id:uid(),...aForm,value:parseFloat(aForm.value)}];setAssets(u);await store.set("assets",u);await snap(u,liabilities);setAModal(false);setAForm({name:"",value:"",type:"cash"});showToast("Asset added");};
   const addL=async()=>{if(!lForm.name||!lForm.value)return;const u=[...liabilities,{id:uid(),...lForm,value:parseFloat(lForm.value)}];setLiabilities(u);await store.set("liabilities",u);await snap(assets,u);setLModal(false);setLForm({name:"",value:"",type:"credit"});showToast("Liability added");};
   const delA=async id=>{if(!window.confirm("Delete this asset?"))return;const u=assets.filter(a=>a.id!==id);setAssets(u);await store.set("assets",u);await snap(u,liabilities);showToast("Asset deleted");};
@@ -345,11 +404,15 @@ function NetWorth({assets,setAssets,liabilities,setLiabilities,netWorthHistory,s
   const saveEditItem=async()=>{const v=parseFloat(editItem.item.value);if(!editItem.item.name||isNaN(v))return;if(editItem.kind==="asset"){const u=assets.map(a=>a.id===editItem.item.id?{...editItem.item,value:v}:a);setAssets(u);await store.set("assets",u);await snap(u,liabilities);}else{const u=liabilities.map(l=>l.id===editItem.item.id?{...editItem.item,value:v}:l);setLiabilities(u);await store.set("liabilities",u);await snap(assets,u);}setEditItem(null);showToast("Updated");};
   const aPie=ATYPES.map(t=>({name:t,value:assets.filter(a=>a.type===t).reduce((x,b)=>x+b.value,0)})).filter(d=>d.value>0);
   const lPie=LTYPES.map(t=>({name:t,value:liabilities.filter(l=>l.type===t).reduce((x,b)=>x+b.value,0)})).filter(d=>d.value>0);
+  const[milestone,setMilestone]=useState(null);
+  const prevNW=netWorthHistory.length>=2?netWorthHistory[netWorthHistory.length-2].netWorth:0;
+  const nextMs=NW_MILESTONES.find(m=>m>(tA-tL));
   return(
     <>
     <div style={{display:"flex",flexDirection:"column",gap:18}}>
       <div><h2 style={{fontSize:22,fontWeight:700,color:G.text,marginBottom:3}}>Net Worth</h2><p style={{color:G.muted,fontSize:13}}>Assets minus liabilities</p></div>
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:12}}><StatCard label="Total Assets" value={fmt(tA)} color={G.teal} icon="📈"/><StatCard label="Total Liabilities" value={fmt(tL)} color={G.red} icon="📉"/><StatCard label="Net Worth" value={fmt(nw)} color={nw>=0?G.teal:G.red} icon="💎"/></div>
+      {nextMs&&<div style={{background:`${G.purple}12`,border:`1px solid ${G.purple}30`,borderRadius:12,padding:"12px 16px",display:"flex",gap:12,alignItems:"center"}}><span style={{fontSize:20}}>🎯</span><div style={{flex:1}}><div style={{fontWeight:600,fontSize:13,color:G.purple}}>Next Milestone: {fmt(nextMs)}</div><div style={{fontSize:12,color:G.muted,marginBottom:6}}>{fmt(nextMs-(tA-tL))} to go · {(((tA-tL)/nextMs)*100).toFixed(0)}% there</div><Bar value={tA-tL} max={nextMs} color={G.purple} h={5}/></div></div>}
       {netWorthHistory.length>1&&<Card><div style={{fontWeight:600,marginBottom:14,fontSize:13,color:G.text}}>History</div><ResponsiveContainer width="100%" height={170}><AreaChart data={netWorthHistory}><defs><linearGradient id="gnw2" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={G.purple} stopOpacity={.25}/><stop offset="95%" stopColor={G.purple} stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke={G.border}/><XAxis dataKey="date" tick={{fill:G.muted,fontSize:10}} axisLine={false} tickLine={false}/><YAxis tick={{fill:G.muted,fontSize:10}} axisLine={false} tickLine={false} tickFormatter={v=>`$${(v/1000).toFixed(0)}k`}/><Tooltip content={<TT/>}/><Area type="monotone" dataKey="netWorth" name="Net Worth" stroke={G.purple} fill="url(#gnw2)" strokeWidth={2}/><Area type="monotone" dataKey="assets" name="Assets" stroke={G.teal} fill="none" strokeWidth={1.5} strokeDasharray="4 4"/><Area type="monotone" dataKey="liabilities" name="Liabilities" stroke={G.red} fill="none" strokeWidth={1.5} strokeDasharray="4 4"/></AreaChart></ResponsiveContainer></Card>}
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
         {[[" Assets",assets,aPie,ACOL,aModal,setAModal,addA,aForm,setAForm,delA,ATYPES,G.teal,"cash"],[" Liabilities",liabilities,lPie,LCOL,lModal,setLModal,addL,lForm,setLForm,delL,LTYPES,G.red,"credit"]].map(([title,items,pie,cols,isOpen,setOpen,onAdd,frm,setFrm,onDel,types,hc])=>(
@@ -362,6 +425,7 @@ function NetWorth({assets,setAssets,liabilities,setLiabilities,netWorthHistory,s
         ))}
       </div>
     </div>
+    {milestone&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",backdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1200}} onClick={()=>setMilestone(null)}><div style={{background:G.card,borderRadius:24,padding:40,textAlign:"center",maxWidth:340,border:`2px solid ${G.gold}`}}><div style={{fontSize:60,marginBottom:12}}>🎉</div><div style={{fontSize:24,fontWeight:800,color:G.gold,marginBottom:8}}>Milestone Reached!</div><div style={{fontSize:18,fontWeight:700,color:G.text,marginBottom:8}}>{fmt(milestone)} Net Worth</div><div style={{color:G.muted,fontSize:13,marginBottom:20}}>Congratulations on reaching this financial milestone! Keep building!</div><Btn onClick={()=>setMilestone(null)}>🙌 Let's go!</Btn></div></div>}
     {editItem&&<Modal title={`Edit ${editItem.kind==="asset"?"Asset":"Liability"}`} onClose={()=>setEditItem(null)}><div style={{display:"flex",flexDirection:"column",gap:12}}><Field label="Name"><Inp value={editItem.item.name} onChange={e=>setEditItem({...editItem,item:{...editItem.item,name:e.target.value}})}/></Field><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Field label="Value ($)"><Inp type="number" value={editItem.item.value} onChange={e=>setEditItem({...editItem,item:{...editItem.item,value:e.target.value}})}/></Field><Field label="Type"><Sel value={editItem.item.type} onChange={e=>setEditItem({...editItem,item:{...editItem.item,type:e.target.value}})}>{(editItem.kind==="asset"?ATYPES:LTYPES).map(t=><option key={t} value={t}>{t.charAt(0).toUpperCase()+t.slice(1)}</option>)}</Sel></Field></div><div style={{display:"flex",gap:10,marginTop:6}}><Btn onClick={saveEditItem} style={{flex:1}}>Save Changes</Btn><Btn onClick={()=>setEditItem(null)} outline style={{flex:1}}>Cancel</Btn></div></div></Modal>}
     </>
   );
@@ -442,7 +506,7 @@ function CreditCards({cards,setCards,showToast}){
 }
 
 /* ── SETTINGS ── */
-function Settings({onClose,isDark,setIsDark,allData,onLock,onClearData}){
+function Settings({onClose,isDark,setIsDark,allData,onLock,onClearData,currency,setCurrencyPref}){
   const G=useG();const [msg,setMsg]=useState("");const [msgType,setMsgType]=useState("ok");const fileRef=useRef();
   const [pinModal,setPinModal]=useState(false);const [oldPin,setOldPin]=useState("");const [newPin1,setNewPin1]=useState("");const [newPin2,setNewPin2]=useState("");
   const say=(m,t=3500,type="ok")=>{setMsg(m);setMsgType(type);setTimeout(()=>setMsg(""),t);};
@@ -454,7 +518,7 @@ function Settings({onClose,isDark,setIsDark,allData,onLock,onClearData}){
       {msg&&<div style={{background:msgType==="err"?`${G.red}12`:`${G.teal}12`,border:`1px solid ${msgType==="err"?G.red:G.teal}30`,borderRadius:10,padding:"10px 14px",fontSize:12,color:msgType==="err"?G.red:G.teal}}>{msg}</div>}
       <div><div style={{fontWeight:600,fontSize:13,color:G.text,marginBottom:12}}>Appearance</div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px",background:G.card2,borderRadius:10,border:`1px solid ${G.border}`}}><div><div style={{fontWeight:500,fontSize:13,color:G.text}}>{isDark?"🌙 Dark Mode":"☀️ Light Mode"}</div><div style={{fontSize:11,color:G.muted}}>Toggle app theme</div></div><button onClick={()=>setIsDark(d=>!d)} style={{width:44,height:24,borderRadius:99,background:isDark?G.teal:G.border,border:"none",cursor:"pointer",position:"relative",transition:"background .2s"}}><div style={{width:18,height:18,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:isDark?22:3,transition:"left .2s"}}/></button></div></div>
       <div><div style={{fontWeight:600,fontSize:13,color:G.text,marginBottom:12}}>Data & Backup</div><div style={{display:"flex",flexDirection:"column",gap:8}}><Btn outline onClick={()=>doExportJSON(allData)} style={{width:"100%"}}>📥 Export JSON Backup</Btn><Btn outline onClick={()=>fileRef.current.click()} style={{width:"100%"}}>📤 Import JSON Backup</Btn><input ref={fileRef} type="file" accept=".json" onChange={handleImport} style={{display:"none"}}/><Btn outline onClick={()=>doPDF(allData.transactions||[],allData.subscriptions||[],allData.goals||[])} style={{width:"100%"}}>📄 Export PDF Report</Btn></div></div>
-      <div><div style={{fontWeight:600,fontSize:13,color:G.text,marginBottom:12}}>Security</div><div style={{display:"flex",flexDirection:"column",gap:8}}><Btn outline onClick={onLock} style={{width:"100%"}}>🔒 Lock App Now</Btn><Btn outline onClick={()=>setPinModal(true)} style={{width:"100%"}}>🔑 Change PIN</Btn></div></div>
+      <div><div style={{fontWeight:600,fontSize:13,color:G.text,marginBottom:12}}>Currency</div><select value={currency||"USD"} onChange={e=>setCurrencyPref(e.target.value)} style={{background:G.card2,border:`1px solid ${G.border}`,color:G.text,borderRadius:9,padding:"9px 12px",fontFamily:"inherit",fontSize:13,outline:"none",width:"100%"}}>{CURRENCIES.map(c=><option key={c.code} value={c.code}>{c.symbol} {c.name} ({c.code})</option>)}</select></div><div><div style={{fontWeight:600,fontSize:13,color:G.text,marginBottom:12}}>Security</div><div style={{display:"flex",flexDirection:"column",gap:8}}><Btn outline onClick={onLock} style={{width:"100%"}}>🔒 Lock App Now</Btn><Btn outline onClick={()=>setPinModal(true)} style={{width:"100%"}}>🔑 Change PIN</Btn></div></div>
       <div><div style={{fontWeight:600,fontSize:13,color:G.text,marginBottom:4}}>About</div><div style={{background:G.card2,border:`1px solid ${G.border}`,borderRadius:10,padding:"12px 14px",fontSize:12,color:G.muted}}>💼 <strong style={{color:G.text}}>FinTrack Pro</strong> — Personal Finance Tracker. Your data is stored securely in your personal Supabase database. No ads. No tracking.</div></div>
       <div style={{borderTop:`1px solid ${G.border}`,paddingTop:16}}><div style={{fontWeight:600,fontSize:13,color:G.red,marginBottom:8}}>Danger Zone</div><Btn color={G.red} outline onClick={onClearData} style={{width:"100%"}}>🗑️ Clear All Data</Btn></div>
     </div></Modal>
@@ -464,7 +528,8 @@ function Settings({onClose,isDark,setIsDark,allData,onLock,onClearData}){
 }
 
 /* ── ROOT ── */
-const TABS=[{id:"dashboard",label:"Dashboard",icon:"📊"},{id:"transactions",label:"Transactions",icon:"💳"},{id:"budget",label:"Budget",icon:"🎯"},{id:"subscriptions",label:"Subscriptions",icon:"🔄"},{id:"goals",label:"Goals",icon:"🏆"},{id:"networth",label:"Net Worth",icon:"💎"},{id:"cards",label:"Credit Cards",icon:"💳"}];
+const TABS=[{id:"dashboard",label:"Dashboard",icon:"📊"},{id:"transactions",label:"Transactions",icon:"💳"},{id:"recurring",label:"Recurring",icon:"🔁"},{id:"budget",label:"Budget",icon:"🎯"},{id:"subscriptions",label:"Subscriptions",icon:"🔄"},{id:"goals",label:"Goals",icon:"🏆"},{id:"networth",label:"Net Worth",icon:"💎"},{id:"cards",label:"Cards",icon:"💳"}];
+const SEED_RECURRING=[];
 
 export default function App(){
   const [isDark,setIsDark]=useState(false);const G=isDark?DARK:LIGHT;
@@ -472,12 +537,22 @@ export default function App(){
   const [tab,setTab]=useState("dashboard");const [locked,setLocked]=useState(true);const [pinSet,setPinSet]=useState(false);const [pinLoaded,setPinLoaded]=useState(false);
   const [transactions,setTransactions]=useState([]);const [budgets,setBudgets]=useState([]);const [subscriptions,setSubscriptions]=useState([]);const [goals,setGoals]=useState([]);
   const [assets,setAssets]=useState([]);const [liabilities,setLiabilities]=useState([]);const [netWorthHistory,setNetWorthHistory]=useState([]);const [cards,setCards]=useState([]);
+  const [recurring,setRecurring]=useState([]);const [currency,setCurrencyPref]=useState("USD");
   const [loaded,setLoaded]=useState(false);const [settingsOpen,setSettingsOpen]=useState(false);const [lockWarn,setLockWarn]=useState(false);
   const [toast,setToast]=useState(null);
   const lockTimer=useRef();const warnTimer=useRef();
   const showToast=(msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),3000);};
+  const fmt=n=>{const sym=CURRENCIES.find(c=>c.code===currency)?.symbol||"$";const abs=Math.abs(n);const s=abs.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,",");return`${n<0?"-":""}${sym}${s}`;};
 
-  useEffect(()=>{(async()=>{const pin=await store.get("pin");setPinSet(!!pin);setPinLoaded(true);setTransactions(await store.get("transactions")||SEED_TXN);setBudgets(await store.get("budgets")||SEED_BUDGETS);setSubscriptions(await store.get("subscriptions")||SEED_SUBS);setGoals(await store.get("goals")||SEED_GOALS);setAssets(await store.get("assets")||SEED_ASSETS);setLiabilities(await store.get("liabilities")||SEED_LIAB);setNetWorthHistory(await store.get("netWorthHistory")||SEED_NWH);setCards(await store.get("cards")||SEED_CARDS);setLoaded(true);})();},[]);
+  useEffect(()=>{(async()=>{const pin=await store.get("pin");setPinSet(!!pin);setPinLoaded(true);setTransactions(await store.get("transactions")||SEED_TXN);setBudgets(await store.get("budgets")||SEED_BUDGETS);setSubscriptions(await store.get("subscriptions")||SEED_SUBS);setGoals(await store.get("goals")||SEED_GOALS);setAssets(await store.get("assets")||SEED_ASSETS);setLiabilities(await store.get("liabilities")||SEED_LIAB);setNetWorthHistory(await store.get("netWorthHistory")||SEED_NWH);setCards(await store.get("cards")||SEED_CARDS);setRecurring(await store.get("recurring")||[]);const savedCurrency=await store.get("currency");if(savedCurrency)setCurrencyPref(savedCurrency);setLoaded(true);})();},[]);
+
+  // Auto-run recurring transactions
+  useEffect(()=>{
+    if(!loaded||!recurring.length)return;
+    const day=new Date().getDate();const due=recurring.filter(r=>r.active&&r.dayOfMonth===day&&r.lastRun!==todayStr());
+    if(!due.length)return;
+    (async()=>{let newTxns=[...transactions];const updatedRec=recurring.map(r=>{if(!due.find(d=>d.id===r.id))return r;const t={id:uid(),date:todayStr(),desc:r.desc,amount:r.amount,type:r.type,category:r.category,note:"[Auto-Recurring]"};newTxns=[t,...newTxns];return{...r,lastRun:todayStr()};});setTransactions(newTxns);await store.set("transactions",newTxns);setRecurring(updatedRec);await store.set("recurring",updatedRec);showToast(`${due.length} recurring entry added automatically`);})();
+  },[loaded]);
 
   useEffect(()=>{
     const reset=()=>{clearTimeout(lockTimer.current);clearTimeout(warnTimer.current);setLockWarn(false);warnTimer.current=setTimeout(()=>setLockWarn(true),4*60*1000);lockTimer.current=setTimeout(()=>{setLocked(true);setLockWarn(false);},5*60*1000);};
@@ -485,7 +560,7 @@ export default function App(){
   },[locked]);
 
   const allData={transactions,budgets,subscriptions,goals,assets,liabilities,cards};
-  const clearAll=async()=>{if(!window.confirm("Delete ALL data? This cannot be undone."))return;for(const k of["transactions","budgets","subscriptions","goals","assets","liabilities","cards","netWorthHistory","pin"])await store.set(k,null);setTransactions([]);setBudgets(SEED_BUDGETS);setSubscriptions([]);setGoals([]);setAssets([]);setLiabilities([]);setCards([]);setNetWorthHistory([]);setPinSet(false);setLocked(true);setSettingsOpen(false);showToast("All data cleared");};
+  const clearAll=async()=>{if(!window.confirm("Delete ALL data? This cannot be undone."))return;for(const k of["transactions","budgets","subscriptions","goals","assets","liabilities","cards","netWorthHistory","pin","recurring","currency"])await store.set(k,null);setTransactions([]);setBudgets(SEED_BUDGETS);setSubscriptions([]);setGoals([]);setAssets([]);setLiabilities([]);setCards([]);setNetWorthHistory([]);setRecurring([]);setCurrencyPref("USD");setPinSet(false);setLocked(true);setSettingsOpen(false);showToast("All data cleared");};
 
   if (!pinLoaded || !loaded) return (
     <ThemeCtx.Provider value={G}>
@@ -536,13 +611,14 @@ export default function App(){
             </div>
           </div>}
           <div className="fade" key={tab}>
-            {tab==="dashboard"    &&<Dashboard transactions={transactions} subscriptions={subscriptions} goals={goals} netWorthHistory={netWorthHistory}/>}
-            {tab==="transactions" &&<Transactions transactions={transactions} setTransactions={setTransactions} showToast={showToast}/>}
-            {tab==="budget"       &&<Budget transactions={transactions} budgets={budgets} setBudgets={setBudgets} showToast={showToast}/>}
-            {tab==="subscriptions"&&<Subscriptions subscriptions={subscriptions} setSubscriptions={setSubscriptions} showToast={showToast}/>}
-            {tab==="goals"        &&<Goals goals={goals} setGoals={setGoals} showToast={showToast}/>}
-            {tab==="networth"     &&<NetWorth assets={assets} setAssets={setAssets} liabilities={liabilities} setLiabilities={setLiabilities} netWorthHistory={netWorthHistory} setNetWorthHistory={setNetWorthHistory} showToast={showToast}/>}
-            {tab==="cards"        &&<CreditCards cards={cards} setCards={setCards} showToast={showToast}/>}
+            {tab==="dashboard"    &&<Dashboard transactions={transactions} subscriptions={subscriptions} goals={goals} netWorthHistory={netWorthHistory} fmt={fmt}/>}
+            {tab==="transactions" &&<Transactions transactions={transactions} setTransactions={setTransactions} showToast={showToast} fmt={fmt}/>}
+            {tab==="recurring"    &&<Recurring transactions={transactions} setTransactions={setTransactions} recurring={recurring} setRecurring={setRecurring} showToast={showToast} fmt={fmt}/>}
+            {tab==="budget"       &&<Budget transactions={transactions} budgets={budgets} setBudgets={setBudgets} showToast={showToast} fmt={fmt}/>}
+            {tab==="subscriptions"&&<Subscriptions subscriptions={subscriptions} setSubscriptions={setSubscriptions} showToast={showToast} fmt={fmt}/>}
+            {tab==="goals"        &&<Goals goals={goals} setGoals={setGoals} showToast={showToast} fmt={fmt}/>}
+            {tab==="networth"     &&<NetWorth assets={assets} setAssets={setAssets} liabilities={liabilities} setLiabilities={setLiabilities} netWorthHistory={netWorthHistory} setNetWorthHistory={setNetWorthHistory} showToast={showToast} fmt={fmt}/>}
+            {tab==="cards"        &&<CreditCards cards={cards} setCards={setCards} showToast={showToast} fmt={fmt}/>}
           </div>
         </div>
         {/* ── MOBILE BOTTOM NAV ── */}
@@ -554,7 +630,7 @@ export default function App(){
           </button>)}
         </div>}
       </div>
-      {settingsOpen&&<Settings onClose={()=>setSettingsOpen(false)} isDark={isDark} setIsDark={setIsDark} allData={allData} onLock={()=>{setLocked(true);setSettingsOpen(false);}} onClearData={clearAll}/>}
+      {settingsOpen&&<Settings onClose={()=>setSettingsOpen(false)} isDark={isDark} setIsDark={setIsDark} allData={allData} onLock={()=>{setLocked(true);setSettingsOpen(false);}} onClearData={clearAll} currency={currency} setCurrencyPref={async(c)=>{setCurrencyPref(c);await store.set("currency",c);}}/>}
     </ThemeCtx.Provider>
   );
 }
