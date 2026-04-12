@@ -79,6 +79,110 @@ const CURRENCIES=[{code:"USD",symbol:"$",name:"US Dollar"},{code:"EUR",symbol:"�
 const fmt=n=>`$${Math.abs(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,",")}`;// global fallback, overridden in App
 const fmtM=m=>m>=12?`${Math.floor(m/12)}y ${m%12}m`:`${m}mo`;
 
+/* ── SMART AUTO-CATEGORIZER ── */
+const CAT_KEYWORDS={
+  Housing:["rent","mortgage","lease","landlord","apartment","property","hoa","housing"],
+  Food:["walmart","kroger","safeway","whole foods","trader joe","aldi","costco","target food","grocery","supermarket","restaurant","mcdonald","burger","pizza","subway","taco","chipotle","starbucks","coffee","cafe","diner","eat","food","dining","doordash","uber eats","grubhub","instacart","domino","kfc","wendy","panera","chick-fil","popeyes","dunkin","tim horton","ihop","applebee","chili","olive garden"],
+  Transport:["gas","shell","bp","chevron","exxon","mobil","76","uber","lyft","taxi","bus","metro","transit","parking","toll","auto","car wash","jiffy lube","valvoline","midas","firestone","autozone","napa","pep boys","enterprise","hertz","avis","delta air","united air","american air","southwest","airline","flight","amtrak","train"],
+  Entertainment:["netflix","hulu","disney","hbo","amazon prime","spotify","apple music","youtube","twitch","steam","xbox","playstation","nintendo","cinema","movie","theater","concert","event","ticket","amc","regal","gaming","game"],
+  Health:["cvs","walgreens","rite aid","pharmacy","doctor","hospital","clinic","dental","vision","gym","planet fitness","la fitness","anytime fitness","peloton","medical","health","insurance","co-pay","copay","prescription","yoga","crossfit"],
+  Shopping:["amazon","ebay","etsy","shopify","nordstrom","macy","jcpenney","gap","h&m","zara","uniqlo","best buy","apple store","microsoft","ikea","wayfair","home depot","lowes","tj maxx","ross","marshalls","burlington","old navy","forever 21","asos"],
+  Utilities:["electric","electricity","gas bill","water","sewer","internet","comcast","att","verizon","tmobile","sprint","xfinity","spectrum","cox","dish","directv","hulu live","phone bill","utility","pg&e","con ed","duke energy","dominion","cell"],
+  Education:["tuition","university","college","school","udemy","coursera","linkedin learning","skillshare","duolingo","textbook","chegg","khan","bootcamp","certification","course fee","class"],
+  Salary:["payroll","salary","direct deposit","paycheck","employer","wages","compensation"],
+  Freelance:["freelance","upwork","fiverr","consulting","client","invoice","contract","self-employed","1099"],
+  Investment:["fidelity","vanguard","schwab","robinhood","coinbase","crypto","bitcoin","stock","dividend","etf","brokerage","ameritrade","e*trade","webull"],
+};
+function autoCategory(desc){
+  const d=desc.toLowerCase();
+  for(const[cat,kws]of Object.entries(CAT_KEYWORDS)){if(kws.some(k=>d.includes(k)))return cat;}
+  return"Other";
+}
+
+/* ── TRANSACTION CALENDAR ── */
+function CalendarView({transactions,fmt}){
+  const G=useG();const isMobile=useIsMobile();
+  const now=new Date();
+  const[viewYear,setViewYear]=useState(now.getFullYear());
+  const[viewMonth,setViewMonth]=useState(now.getMonth());
+  const[selected,setSelected]=useState(null);
+  const firstDay=new Date(viewYear,viewMonth,1).getDay();
+  const daysInMonth=new Date(viewYear,viewMonth+1,0).getDate();
+  const mk=`${viewYear}-${String(viewMonth+1).padStart(2,"0")}`;
+  const monthTxns=transactions.filter(t=>t.date.startsWith(mk));
+  const byDay={};monthTxns.forEach(t=>{const d=parseInt(t.date.split("-")[2]);if(!byDay[d])byDay[d]=[];byDay[d].push(t);});
+  const totalIncome=monthTxns.filter(t=>t.type==="income").reduce((a,b)=>a+b.amount,0);
+  const totalExpense=monthTxns.filter(t=>t.type==="expense").reduce((a,b)=>a+b.amount,0);
+  const monthName=new Date(viewYear,viewMonth,1).toLocaleString("default",{month:"long",year:"numeric"});
+  const prevMonth=()=>{if(viewMonth===0){setViewYear(y=>y-1);setViewMonth(11);}else setViewMonth(m=>m-1);setSelected(null);};
+  const nextMonth=()=>{if(viewMonth===11){setViewYear(y=>y+1);setViewMonth(0);}else setViewMonth(m=>m+1);setSelected(null);};
+  const selTxns=selected?byDay[selected]||[]:[];
+  const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:18}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div><h2 style={{fontSize:22,fontWeight:700,color:G.text,marginBottom:3}}>Transaction Calendar</h2><p style={{color:G.muted,fontSize:13}}>{monthTxns.length} transactions this month</p></div>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <button onClick={prevMonth} style={{background:G.card2,border:`1px solid ${G.border}`,borderRadius:9,padding:"7px 12px",cursor:"pointer",color:G.text,fontSize:16}}>‹</button>
+          <span style={{fontWeight:700,fontSize:14,color:G.text,minWidth:140,textAlign:"center"}}>{monthName}</span>
+          <button onClick={nextMonth} style={{background:G.card2,border:`1px solid ${G.border}`,borderRadius:9,padding:"7px 12px",cursor:"pointer",color:G.text,fontSize:16}}>›</button>
+        </div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:12}}>
+        <StatCard label="Income" value={fmt(totalIncome)} color={G.teal} icon="💰"/>
+        <StatCard label="Expenses" value={fmt(totalExpense)} color={G.red} icon="📤"/>
+        <StatCard label="Net" value={fmt(totalIncome-totalExpense)} color={(totalIncome-totalExpense)>=0?G.teal:G.red} icon="📊"/>
+      </div>
+      <Card style={{padding:16}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:8}}>
+          {DAYS.map(d=><div key={d} style={{textAlign:"center",fontSize:10,fontWeight:700,color:G.muted,padding:"4px 0",letterSpacing:.5}}>{d}</div>)}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
+          {Array.from({length:firstDay},(_,i)=><div key={`e${i}`}/>)}
+          {Array.from({length:daysInMonth},(_,i)=>{
+            const day=i+1;const txns=byDay[day]||[];const hasInc=txns.some(t=>t.type==="income");const hasExp=txns.some(t=>t.type==="expense");const isToday=viewYear===now.getFullYear()&&viewMonth===now.getMonth()&&day===now.getDate();const isSel=selected===day;
+            return(
+              <button key={day} onClick={()=>setSelected(isSel?null:day)} style={{aspectRatio:"1",borderRadius:10,border:`1.5px solid ${isSel?G.teal:isToday?G.gold:"transparent"}`,background:isSel?`${G.teal}18`:isToday?`${G.gold}10`:txns.length?G.card2:"transparent",cursor:txns.length?"pointer":"default",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:2,padding:2,transition:"all .15s"}}>
+                <span style={{fontSize:isMobile?11:13,fontWeight:isToday?700:400,color:isSel?G.teal:isToday?G.gold:txns.length?G.text:G.muted}}>{day}</span>
+                {txns.length>0&&<div style={{display:"flex",gap:2,justifyContent:"center"}}>
+                  {hasInc&&<div style={{width:4,height:4,borderRadius:"50%",background:G.teal}}/>}
+                  {hasExp&&<div style={{width:4,height:4,borderRadius:"50%",background:G.red}}/>}
+                </div>}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{display:"flex",gap:16,marginTop:12,paddingTop:12,borderTop:`1px solid ${G.border}`,fontSize:11,color:G.muted}}>
+          <div style={{display:"flex",alignItems:"center",gap:5}}><div style={{width:8,height:8,borderRadius:"50%",background:G.teal}}/> Income</div>
+          <div style={{display:"flex",alignItems:"center",gap:5}}><div style={{width:8,height:8,borderRadius:"50%",background:G.red}}/> Expense</div>
+          <div style={{display:"flex",alignItems:"center",gap:5}}><div style={{width:12,height:12,borderRadius:3,background:`${G.gold}20`,border:`1px solid ${G.gold}`}}/> Today</div>
+        </div>
+      </Card>
+      {selected&&selTxns.length>0&&(
+        <Card>
+          <div style={{fontWeight:700,fontSize:15,color:G.text,marginBottom:12}}>{new Date(viewYear,viewMonth,selected).toLocaleDateString("default",{weekday:"long",month:"long",day:"numeric",year:"numeric"})}</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {selTxns.map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:G.card2,borderRadius:10,border:`1px solid ${G.border}`}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <div style={{width:8,height:8,borderRadius:"50%",background:t.type==="income"?G.teal:G.red,flexShrink:0}}/>
+                <div><div style={{fontSize:13,fontWeight:600,color:G.text}}>{t.desc}</div><div style={{fontSize:11,color:G.muted}}><Pill label={t.category} color={CAT_COLOR[t.category]||G.muted}/></div></div>
+              </div>
+              <span style={{fontWeight:700,color:t.type==="income"?G.teal:G.red,fontSize:14,fontFamily:"monospace"}}>{t.type==="income"?"+":"-"}{fmt(t.amount)}</span>
+            </div>)}
+            <div style={{display:"flex",justifyContent:"space-between",padding:"8px 14px",background:G.card2,borderRadius:10,border:`1px solid ${G.border}`,fontWeight:600,fontSize:13}}>
+              <span style={{color:G.muted}}>Day Total</span>
+              <span style={{color:(selTxns.filter(t=>t.type==="income").reduce((a,b)=>a+b.amount,0)-selTxns.filter(t=>t.type==="expense").reduce((a,b)=>a+b.amount,0))>=0?G.teal:G.red,fontFamily:"monospace"}}>
+                {fmt(selTxns.filter(t=>t.type==="income").reduce((a,b)=>a+b.amount,0)-selTxns.filter(t=>t.type==="expense").reduce((a,b)=>a+b.amount,0))}
+              </span>
+            </div>
+          </div>
+        </Card>
+      )}
+      {selected&&selTxns.length===0&&<Card style={{textAlign:"center",padding:30,color:G.muted,fontSize:13}}>No transactions on this day</Card>}
+    </div>
+  );
+}
+
 function calcPayoff(cards,extra,method){
   let deck=cards.filter(c=>c.balance>0.01).map(c=>({...c}));
   if(!deck.length)return{months:0,interest:0,schedule:[]};
@@ -247,7 +351,7 @@ function Transactions({transactions,setTransactions,showToast,fmt}){
   const openEdit=t=>{setEditTxn({...t,amount:String(t.amount)});};
   const saveEdit=async()=>{if(!editTxn.date||!editTxn.desc||!editTxn.amount)return;const u=transactions.map(t=>t.id===editTxn.id?{...editTxn,amount:parseFloat(editTxn.amount)}:t);setTransactions(u);await store.set("transactions",u);setEditTxn(null);showToast("Transaction updated");};
   const handleCSV=e=>{const f=e.target.files[0];if(!f)return;Papa.parse(f,{header:true,skipEmptyLines:true,complete:r=>{setCsvData(r);const c=r.meta.fields||[];const g=ks=>c.find(x=>ks.some(k=>x.toLowerCase().includes(k)))||"";setMapping({date:g(["date","time","posted"]),desc:g(["desc","name","merchant","memo","payee"]),amount:g(["amount","debit","credit","sum"]),type:g(["type","credit","debit"]),category:g(["category","cat"])});setCsvMsg(`Loaded ${r.data.length} rows.`);},error:()=>setCsvMsg("Failed to parse.")});};
-  const importCSV=async()=>{if(!csvData||!mapping.date||!mapping.desc||!mapping.amount){setCsvMsg("Map Date, Description, and Amount first.");return;}const imp=csvData.data.map(row=>{const raw=parseFloat((row[mapping.amount]||"0").replace(/[^0-9.\-]/g,""));const isInc=raw>0||(mapping.type&&row[mapping.type]?.toLowerCase().includes("credit"));return{id:uid(),date:(row[mapping.date]||"").trim().slice(0,10)||new Date().toISOString().slice(0,10),desc:(row[mapping.desc]||"").trim()||"Imported",amount:Math.abs(raw),type:isInc?"income":"expense",category:(mapping.category&&row[mapping.category]?.trim())||"Other",note:""};}).filter(t=>t.amount>0);const u=[...imp,...transactions];setTransactions(u);await store.set("transactions",u);setCsvModal(false);setCsvData(null);setCsvMsg("");};
+  const importCSV=async()=>{if(!csvData||!mapping.date||!mapping.desc||!mapping.amount){setCsvMsg("Map Date, Description, and Amount first.");return;}const imp=csvData.data.map(row=>{const raw=parseFloat((row[mapping.amount]||"0").replace(/[^0-9.\-]/g,""));const isInc=raw>0||(mapping.type&&row[mapping.type]?.toLowerCase().includes("credit"));const desc=(row[mapping.desc]||"").trim()||"Imported";const manualCat=mapping.category&&row[mapping.category]?.trim();const category=manualCat||autoCategory(desc);return{id:uid(),date:(row[mapping.date]||"").trim().slice(0,10)||new Date().toISOString().slice(0,10),desc,amount:Math.abs(raw),type:isInc?"income":"expense",category,note:""};}).filter(t=>t.amount>0);const u=[...imp,...transactions];setTransactions(u);await store.set("transactions",u);setCsvModal(false);setCsvData(null);setCsvMsg("");showToast(`${imp.length} transactions imported with auto-categories`);};
   const cols=csvData?.meta?.fields||[];
   return(
     <div style={{display:"flex",flexDirection:"column",gap:18}}>
@@ -279,7 +383,7 @@ function Transactions({transactions,setTransactions,showToast,fmt}){
       )}
       {modal&&<Modal title="Add Transaction" onClose={()=>setModal(false)}><div style={{display:"flex",flexDirection:"column",gap:12}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Field label="Type"><Sel value={form.type} onChange={e=>setForm({...form,type:e.target.value})}><option value="expense">Expense</option><option value="income">Income</option></Sel></Field><Field label="Date"><Inp type="date" value={form.date} onChange={e=>setForm({...form,date:e.target.value})}/></Field></div><div style={{display:"flex",gap:6,marginTop:-6}}><button onClick={()=>setForm({...form,date:today})} style={{background:form.date===today?`${G.teal}18`:"none",border:`1px solid ${form.date===today?G.teal:G.border}`,borderRadius:7,padding:"3px 10px",fontSize:11,cursor:"pointer",color:form.date===today?G.teal:G.muted,fontFamily:"inherit"}}>Today</button><button onClick={()=>setForm({...form,date:yesterday})} style={{background:form.date===yesterday?`${G.teal}18`:"none",border:`1px solid ${form.date===yesterday?G.teal:G.border}`,borderRadius:7,padding:"3px 10px",fontSize:11,cursor:"pointer",color:form.date===yesterday?G.teal:G.muted,fontFamily:"inherit"}}>Yesterday</button></div><Field label="Description"><Inp value={form.desc} onChange={e=>setForm({...form,desc:e.target.value})} placeholder="What was this for?"/></Field><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Field label="Amount ($)"><Inp type="number" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})} placeholder="0.00"/></Field><Field label="Category"><Sel value={form.category} onChange={e=>setForm({...form,category:e.target.value})}>{CATEGORIES.map(c=><option key={c}>{c}</option>)}</Sel></Field></div><Field label="Note (optional)"><Inp value={form.note} onChange={e=>setForm({...form,note:e.target.value})} placeholder="Any notes..."/></Field><div style={{display:"flex",gap:10,marginTop:6}}><Btn onClick={add} style={{flex:1}}>Add Transaction</Btn><Btn onClick={()=>setModal(false)} outline style={{flex:1}}>Cancel</Btn></div></div></Modal>}
       {editTxn&&<Modal title="Edit Transaction" onClose={()=>setEditTxn(null)}><div style={{display:"flex",flexDirection:"column",gap:12}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Field label="Type"><Sel value={editTxn.type} onChange={e=>setEditTxn({...editTxn,type:e.target.value})}><option value="expense">Expense</option><option value="income">Income</option></Sel></Field><Field label="Date"><Inp type="date" value={editTxn.date} onChange={e=>setEditTxn({...editTxn,date:e.target.value})}/></Field></div><Field label="Description"><Inp value={editTxn.desc} onChange={e=>setEditTxn({...editTxn,desc:e.target.value})}/></Field><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Field label="Amount ($)"><Inp type="number" value={editTxn.amount} onChange={e=>setEditTxn({...editTxn,amount:e.target.value})}/></Field><Field label="Category"><Sel value={editTxn.category} onChange={e=>setEditTxn({...editTxn,category:e.target.value})}>{CATEGORIES.map(c=><option key={c}>{c}</option>)}</Sel></Field></div><Field label="Note (optional)"><Inp value={editTxn.note||""} onChange={e=>setEditTxn({...editTxn,note:e.target.value})}/></Field><div style={{display:"flex",gap:10,marginTop:6}}><Btn onClick={saveEdit} style={{flex:1}}>Save Changes</Btn><Btn onClick={()=>setEditTxn(null)} outline style={{flex:1}}>Cancel</Btn></div></div></Modal>}
-      {csvModal&&<Modal title="Import from CSV" wide onClose={()=>setCsvModal(false)}><div style={{display:"flex",flexDirection:"column",gap:14}}><div style={{background:G.card2,border:`2px dashed ${G.border}`,borderRadius:12,padding:24,textAlign:"center"}}><div style={{fontSize:32,marginBottom:8}}>📂</div><div style={{fontWeight:600,marginBottom:4,color:G.text}}>Select Bank CSV</div><div style={{color:G.muted,fontSize:12,marginBottom:14}}>Export CSV from your bank and upload here. Works with most banks.</div><Btn onClick={()=>fileRef.current.click()}>Choose File</Btn><input ref={fileRef} type="file" accept=".csv" onChange={handleCSV} style={{display:"none"}}/></div>{csvMsg&&<div style={{background:`${G.teal}12`,border:`1px solid ${G.teal}30`,borderRadius:10,padding:"10px 14px",fontSize:12,color:G.teal}}>{csvMsg}</div>}{csvData&&<><div style={{fontWeight:600,fontSize:13,color:G.text}}>Map Columns</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>{[["date","Date *"],["desc","Description *"],["amount","Amount *"],["type","Type (optional)"],["category","Category (optional)"]].map(([k,lbl])=><Field key={k} label={lbl}><Sel value={mapping[k]} onChange={e=>setMapping({...mapping,[k]:e.target.value})}><option value="">-- Skip --</option>{cols.map(c=><option key={c} value={c}>{c}</option>)}</Sel></Field>)}</div><div style={{display:"flex",gap:10}}><Btn onClick={importCSV} style={{flex:1}}>Import {csvData.data.length} Rows</Btn><Btn onClick={()=>setCsvModal(false)} outline style={{flex:1}}>Cancel</Btn></div></>}</div></Modal>}
+      {csvModal&&<Modal title="Import from CSV" wide onClose={()=>setCsvModal(false)}><div style={{display:"flex",flexDirection:"column",gap:14}}><div style={{background:G.card2,border:`2px dashed ${G.border}`,borderRadius:12,padding:24,textAlign:"center"}}><div style={{fontSize:32,marginBottom:8}}>📂</div><div style={{fontWeight:600,marginBottom:4,color:G.text}}>Select Bank CSV</div><div style={{color:G.muted,fontSize:12,marginBottom:14}}>Export CSV from your bank and upload here. Works with most banks.</div><Btn onClick={()=>fileRef.current.click()}>Choose File</Btn><input ref={fileRef} type="file" accept=".csv" onChange={handleCSV} style={{display:"none"}}/></div>{csvMsg&&<div style={{background:`${G.teal}12`,border:`1px solid ${G.teal}30`,borderRadius:10,padding:"10px 14px",fontSize:12,color:G.teal}}>{csvMsg}</div>}{csvData&&<><div style={{fontWeight:600,fontSize:13,color:G.text}}>Map Columns</div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>{[["date","Date *"],["desc","Description *"],["amount","Amount *"],["type","Type (optional)"],["category","Category override (optional)"]].map(([k,lbl])=><Field key={k} label={lbl}><Sel value={mapping[k]} onChange={e=>setMapping({...mapping,[k]:e.target.value})}><option value="">-- Skip --</option>{cols.map(c=><option key={c} value={c}>{c}</option>)}</Sel></Field>)}</div>{mapping.desc&&<div style={{background:`${G.teal}10`,border:`1px solid ${G.teal}30`,borderRadius:10,padding:"10px 14px"}}><div style={{fontWeight:600,fontSize:12,color:G.teal,marginBottom:8}}>🤖 Auto-detected categories (preview)</div><div style={{display:"flex",flexDirection:"column",gap:5}}>{csvData.data.slice(0,5).map((row,i)=>{const desc=(row[mapping.desc]||"").trim();const cat=autoCategory(desc);return<div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:11,gap:8}}><span style={{color:G.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{desc||"—"}</span><Pill label={cat} color={CAT_COLOR[cat]||G.muted}/></div>;})}</div></div>}<div style={{display:"flex",gap:10}}><Btn onClick={importCSV} style={{flex:1}}>Import {csvData.data.length} Rows</Btn><Btn onClick={()=>setCsvModal(false)} outline style={{flex:1}}>Cancel</Btn></div></>}</div></Modal>}
     </div>
   );
 }
@@ -529,7 +633,7 @@ function Settings({onClose,isDark,setIsDark,allData,onLock,onClearData,currency,
 }
 
 /* ── ROOT ── */
-const TABS=[{id:"dashboard",label:"Dashboard",icon:"📊"},{id:"transactions",label:"Transactions",icon:"💳"},{id:"recurring",label:"Recurring",icon:"🔁"},{id:"budget",label:"Budget",icon:"🎯"},{id:"subscriptions",label:"Subscriptions",icon:"🔄"},{id:"goals",label:"Goals",icon:"🏆"},{id:"networth",label:"Net Worth",icon:"💎"},{id:"cards",label:"Cards",icon:"💳"}];
+const TABS=[{id:"dashboard",label:"Dashboard",icon:"📊"},{id:"transactions",label:"Transactions",icon:"💳"},{id:"calendar",label:"Calendar",icon:"📅"},{id:"recurring",label:"Recurring",icon:"🔁"},{id:"budget",label:"Budget",icon:"🎯"},{id:"subscriptions",label:"Subscriptions",icon:"🔄"},{id:"goals",label:"Goals",icon:"🏆"},{id:"networth",label:"Net Worth",icon:"💎"},{id:"cards",label:"Cards",icon:"💳"}];
 const SEED_RECURRING=[];
 
 export default function App(){
@@ -614,6 +718,7 @@ export default function App(){
           <div className="fade" key={tab}>
             {tab==="dashboard"    &&<Dashboard transactions={transactions} subscriptions={subscriptions} goals={goals} netWorthHistory={netWorthHistory} fmt={fmt}/>}
             {tab==="transactions" &&<Transactions transactions={transactions} setTransactions={setTransactions} showToast={showToast} fmt={fmt}/>}
+            {tab==="calendar"     &&<CalendarView transactions={transactions} fmt={fmt}/>}
             {tab==="recurring"    &&<Recurring transactions={transactions} setTransactions={setTransactions} recurring={recurring} setRecurring={setRecurring} showToast={showToast} fmt={fmt}/>}
             {tab==="budget"       &&<Budget transactions={transactions} budgets={budgets} setBudgets={setBudgets} showToast={showToast} fmt={fmt}/>}
             {tab==="subscriptions"&&<Subscriptions subscriptions={subscriptions} setSubscriptions={setSubscriptions} showToast={showToast} fmt={fmt}/>}
