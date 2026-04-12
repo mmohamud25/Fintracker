@@ -76,6 +76,7 @@ const yesterdayStr=()=>new Date(Date.now()-86400000).toISOString().slice(0,10);
 const monthKey=(d=new Date())=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
 const NW_MILESTONES=[1000,5000,10000,25000,50000,100000,250000,500000,1000000];
 const CURRENCIES=[{code:"USD",symbol:"$",name:"US Dollar"},{code:"EUR",symbol:"€",name:"Euro"},{code:"GBP",symbol:"£",name:"British Pound"},{code:"SAR",symbol:"\u0631\u06cc\u0627\u0644",name:"Saudi Riyal"},{code:"AED",symbol:"\u062f.\u0625",name:"UAE Dirham"},{code:"SOS",symbol:"Sh",name:"Somali Shilling"},{code:"ETB",symbol:"Br",name:"Ethiopian Birr"},{code:"KES",symbol:"Ksh",name:"Kenyan Shilling"},{code:"TRY",symbol:"\u20ba",name:"Turkish Lira"},{code:"CAD",symbol:"CA$",name:"Canadian Dollar"},{code:"AUD",symbol:"A$",name:"Australian Dollar"},{code:"JPY",symbol:"\u00a5",name:"Japanese Yen"}];
+const fmt=n=>`$${Math.abs(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,",")}`;// global fallback, overridden in App
 const fmtM=m=>m>=12?`${Math.floor(m/12)}y ${m%12}m`:`${m}mo`;
 
 function calcPayoff(cards,extra,method){
@@ -104,10 +105,10 @@ function Inp(props){const G=useG();return <input {...props} style={{background:G
 function Sel({children,...props}){const G=useG();return <select {...props} style={{background:G.card2,border:`1px solid ${G.border}`,color:G.text,borderRadius:9,padding:"9px 12px",fontFamily:"inherit",fontSize:13,outline:"none",width:"100%",...props.style}}>{children}</select>;}
 function StatCard({label,value,sub,color,icon}){const G=useG();const c=color||G.teal;return <Card><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><div style={{color:G.muted,fontSize:10,fontWeight:700,letterSpacing:.6,textTransform:"uppercase",marginBottom:8}}>{label}</div><div style={{fontSize:22,fontWeight:700,color:c,fontFamily:"monospace",marginBottom:3}}>{value}</div>{sub&&<div style={{fontSize:11,color:G.muted}}>{sub}</div>}</div><div style={{fontSize:26,opacity:.55}}>{icon}</div></div></Card>;}
 function Bar({value,max,color,h=8}){const G=useG();const p=Math.min(100,(value/Math.max(max,1))*100);return <div style={{background:G.border,borderRadius:99,height:h,overflow:"hidden"}}><div style={{height:"100%",borderRadius:99,width:`${p}%`,background:color,transition:"width .6s ease"}}/></div>;}
-function TT({active,payload,label}){const G=useG();if(!active||!payload?.length)return null;return <div style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:10,padding:"10px 14px",boxShadow:"0 4px 16px rgba(0,0,0,.12)"}}><div style={{fontWeight:600,marginBottom:4,fontSize:12,color:G.text}}>{label}</div>{payload.map(p=><div key={p.dataKey} style={{color:p.color||p.stroke,fontSize:12,fontFamily:"monospace"}}>{p.name}: {fmt(p.value)}</div>)}</div>;}
+function TT({active,payload,label,fmt:ttFmt}){const G=useG();if(!active||!payload?.length)return null;const f=ttFmt||(v=>`$${Number(v).toFixed(0)}`);return <div style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:10,padding:"10px 14px",boxShadow:"0 4px 16px rgba(0,0,0,.12)"}}><div style={{fontWeight:600,marginBottom:4,fontSize:12,color:G.text}}>{label}</div>{payload.map(p=><div key={p.dataKey} style={{color:p.color||p.stroke,fontSize:12,fontFamily:"monospace"}}>{p.name}: {f(p.value)}</div>)}</div>;}
 
 /* ── PDF ── */
-function doPDF(transactions,subscriptions,goals){
+function doPDF(transactions,subscriptions,goals,fmt){
   const now=new Date();const tm=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
   const mt=transactions.filter(t=>t.date.startsWith(tm));const inc=mt.filter(t=>t.type==="income").reduce((a,b)=>a+b.amount,0);const exp=mt.filter(t=>t.type==="expense").reduce((a,b)=>a+b.amount,0);const net=inc-exp;const sub=subscriptions.reduce((a,b)=>a+b.amount,0);
   const cm={};mt.filter(t=>t.type==="expense").forEach(t=>{cm[t.category]=(cm[t.category]||0)+t.amount;});
@@ -163,7 +164,7 @@ function PinLock({onUnlock,isSetup}){
 }
 
 /* ── DASHBOARD ── */
-function Dashboard({transactions,subscriptions,goals,netWorthHistory}){
+function Dashboard({transactions,subscriptions,goals,netWorthHistory,fmt}){
   const G=useG();const isMobile=useIsMobile();const now=new Date();
   const prevMonthDate=new Date(now.getFullYear(),now.getMonth()-1,1);
   const tm=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
@@ -181,7 +182,7 @@ function Dashboard({transactions,subscriptions,goals,netWorthHistory}){
     <div style={{display:"flex",flexDirection:"column",gap:18}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10}}>
         <div><h2 style={{fontSize:22,fontWeight:700,color:G.text,marginBottom:3}}>Financial Overview</h2><p style={{color:G.muted,fontSize:13}}>{now.toLocaleString("default",{month:"long",year:"numeric"})}</p></div>
-        <Btn onClick={()=>doPDF(transactions,subscriptions,goals)}>📄 Export PDF</Btn>
+        <Btn onClick={()=>doPDF(transactions,subscriptions,goals,fmt)}>📄 Export PDF</Btn>
       </div>
       {billsAlert.length>0&&<div style={{background:`${G.gold}15`,border:`1px solid ${G.gold}40`,borderRadius:12,padding:"12px 16px",display:"flex",gap:10,alignItems:"center"}}><span style={{fontSize:20}}>⚠️</span><div><div style={{fontWeight:600,fontSize:13,color:G.gold}}>Bills Due Soon</div><div style={{fontSize:12,color:G.muted}}>{billsAlert.map(s=>`${s.name} — Day ${s.due}`).join(" · ")}</div></div></div>}
       {anomalies.length>0&&<div style={{background:`${G.red}10`,border:`1px solid ${G.red}30`,borderRadius:12,padding:"12px 16px"}}><div style={{fontWeight:600,fontSize:12,color:G.red,marginBottom:4}}>📈 Spending Alerts</div>{anomalies.map((a,i)=><div key={i} style={{fontSize:12,color:G.muted}}>• {a}</div>)}</div>}
@@ -235,7 +236,7 @@ function Dashboard({transactions,subscriptions,goals,netWorthHistory}){
 }
 
 /* ── TRANSACTIONS ── */
-function Transactions({transactions,setTransactions,showToast}){
+function Transactions({transactions,setTransactions,showToast,fmt}){
   const G=useG();const isMobile=useIsMobile();const [modal,setModal]=useState(false);const [editTxn,setEditTxn]=useState(null);const [csvModal,setCsvModal]=useState(false);const [filter,setFilter]=useState("all");const [search,setSearch]=useState("");
   const today=new Date().toISOString().slice(0,10);const yesterday=new Date(Date.now()-86400000).toISOString().slice(0,10);
   const [form,setForm]=useState({date:today,desc:"",amount:"",type:"expense",category:"Food",note:""});const [csvData,setCsvData]=useState(null);const [mapping,setMapping]=useState({date:"",desc:"",amount:"",type:"",category:""});const [csvMsg,setCsvMsg]=useState("");const fileRef=useRef();
@@ -319,7 +320,7 @@ function Recurring({transactions,setTransactions,recurring,setRecurring,showToas
 }
 
 /* ── BUDGET ── */
-function Budget({transactions,budgets,setBudgets,showToast}){
+function Budget({transactions,budgets,setBudgets,showToast,fmt}){
   const G=useG();const [editing,setEditing]=useState(null);const [newLimit,setNewLimit]=useState("");const [addModal,setAddModal]=useState(false);const [newCat,setNewCat]=useState({category:"",limit:""});
   const now=new Date();const tm=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
   const monthExp=transactions.filter(t=>t.type==="expense"&&t.date.startsWith(tm));
@@ -342,7 +343,7 @@ function Budget({transactions,budgets,setBudgets,showToast}){
 }
 
 /* ── SUBSCRIPTIONS ── */
-function Subscriptions({subscriptions,setSubscriptions,showToast}){
+function Subscriptions({subscriptions,setSubscriptions,showToast,fmt}){
   const G=useG();const isMobile=useIsMobile();const [modal,setModal]=useState(false);const [editSub,setEditSub]=useState(null);const [form,setForm]=useState({name:"",amount:"",due:"1",category:"Entertainment"});const [alertMsg,setAlertMsg]=useState("");
   const total=subscriptions.reduce((a,b)=>a+b.amount,0);const today=new Date().getDate();
   const add=async()=>{if(!form.name||!form.amount)return;const u=[...subscriptions,{id:uid(),...form,amount:parseFloat(form.amount),due:parseInt(form.due)}];setSubscriptions(u);await store.set("subscriptions",u);setModal(false);setForm({name:"",amount:"",due:"1",category:"Entertainment"});showToast("Subscription added");};
@@ -367,7 +368,7 @@ function Subscriptions({subscriptions,setSubscriptions,showToast}){
 }
 
 /* ── GOALS ── */
-function Goals({goals,setGoals,showToast}){
+function Goals({goals,setGoals,showToast,fmt}){
   const G=useG();const [modal,setModal]=useState(false);const [editGoal,setEditGoal]=useState(null);const [dep,setDep]=useState({id:null,amount:""});const [form,setForm]=useState({name:"",target:"",saved:"0",icon:"🎯"});
   const ICONS=["🎯","✈️","🏠","💻","🚗","💍","🎓","🛡️","📱","🏋️","🌴","💰"];const COLS=[G.teal,G.gold,G.purple,G.red,"#EA580C","#0284C7","#16A34A"];
   const add=async()=>{if(!form.name||!form.target)return;const u=[...goals,{id:uid(),...form,target:parseFloat(form.target),saved:parseFloat(form.saved||0)}];setGoals(u);await store.set("goals",u);setModal(false);setForm({name:"",target:"",saved:"0",icon:"🎯"});showToast("Goal created");};
@@ -388,7 +389,7 @@ function Goals({goals,setGoals,showToast}){
 }
 
 /* ── NET WORTH ── */
-function NetWorth({assets,setAssets,liabilities,setLiabilities,netWorthHistory,setNetWorthHistory,showToast}){
+function NetWorth({assets,setAssets,liabilities,setLiabilities,netWorthHistory,setNetWorthHistory,showToast,fmt}){
   const G=useG();const isMobile=useIsMobile();const [aModal,setAModal]=useState(false);const [lModal,setLModal]=useState(false);const [aForm,setAForm]=useState({name:"",value:"",type:"cash"});const [lForm,setLForm]=useState({name:"",value:"",type:"credit"});
   const [editItem,setEditItem]=useState(null);
   const tA=assets.reduce((a,b)=>a+b.value,0);const tL=liabilities.reduce((a,b)=>a+b.value,0);const nw=tA-tL;
@@ -432,7 +433,7 @@ function NetWorth({assets,setAssets,liabilities,setLiabilities,netWorthHistory,s
 }
 
 /* ── CREDIT CARDS ── */
-function CreditCards({cards,setCards,showToast}){
+function CreditCards({cards,setCards,showToast,fmt}){
   const G=useG();const [modal,setModal]=useState(false);const [editCard,setEditCard]=useState(null);const [payModal,setPayModal]=useState(null);const [calcModal,setCalcModal]=useState(false);
   const [form,setForm]=useState({name:"",last4:"",limit:"",balance:"",apr:"",minPayment:"",dueDay:"15",ca:"#1a1a2e",cb:"#16213e"});const [payAmt,setPayAmt]=useState("");const [extra,setExtra]=useState("100");const [method,setMethod]=useState("avalanche");
   const isMobile=useIsMobile();
