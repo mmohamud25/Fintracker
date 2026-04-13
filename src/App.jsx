@@ -55,8 +55,8 @@ const SEED_TXN=[
   {id:16,date:"2026-02-14",desc:"Valentine Dinner",amount:95,type:"expense",category:"Food",note:""},
   {id:17,date:"2026-02-20",desc:"Course Fee",amount:49,type:"expense",category:"Education",note:""},
 ];
-const SEED_BUDGETS=[{category:"Housing",limit:1300},{category:"Food",limit:400},{category:"Transport",limit:150},{category:"Entertainment",limit:80},{category:"Health",limit:100},{category:"Shopping",limit:200},{category:"Utilities",limit:120},{category:"Education",limit:100}];
-const SEED_SUBS=[{id:1,name:"Netflix",amount:15.99,due:4,category:"Entertainment"},{id:2,name:"Spotify",amount:9.99,due:10,category:"Entertainment"},{id:3,name:"Gym",amount:40,due:1,category:"Health"},{id:4,name:"iCloud",amount:2.99,due:15,category:"Utilities"},{id:5,name:"Adobe CC",amount:54.99,due:22,category:"Shopping"}];
+const SEED_BUDGETS=[{category:"Housing",limit:1300,rollover:0},{category:"Food",limit:400,rollover:0},{category:"Transport",limit:150,rollover:0},{category:"Entertainment",limit:80,rollover:0},{category:"Health",limit:100,rollover:0},{category:"Shopping",limit:200,rollover:0},{category:"Utilities",limit:120,rollover:0},{category:"Education",limit:100,rollover:0}];
+const SEED_SUBS=[{id:1,name:"Netflix",amount:15.99,due:4,category:"Entertainment",paidMonths:[]},{id:2,name:"Spotify",amount:9.99,due:10,category:"Entertainment",paidMonths:[]},{id:3,name:"Gym",amount:40,due:1,category:"Health",paidMonths:[]},{id:4,name:"iCloud",amount:2.99,due:15,category:"Utilities",paidMonths:[]},{id:5,name:"Adobe CC",amount:54.99,due:22,category:"Shopping",paidMonths:[]}];
 const SEED_GOALS=[{id:1,name:"Emergency Fund",target:10000,saved:3200,icon:"🛡️"},{id:2,name:"Vacation",target:3000,saved:850,icon:"✈️"},{id:3,name:"New Laptop",target:1500,saved:600,icon:"💻"}];
 const SEED_ASSETS=[{id:1,name:"Checking",value:4200,type:"cash"},{id:2,name:"Savings",value:8500,type:"cash"},{id:3,name:"401k",value:22000,type:"investment"},{id:4,name:"Car",value:12000,type:"vehicle"}];
 const SEED_LIAB=[{id:1,name:"Car Loan",value:8500,type:"auto"},{id:2,name:"Credit Card",value:1200,type:"credit"},{id:3,name:"Student Loan",value:15000,type:"student"}];
@@ -228,14 +228,6 @@ function doPDF(transactions,subscriptions,goals,fmt){
 
 function doExportJSON(data){const b=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=`fintrack-${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(u);}
 
-async function doAlerts(subscriptions){
-  if(!("Notification"in window))return{ok:false,msg:"Notifications not supported."};
-  const p=await Notification.requestPermission();if(p!=="granted")return{ok:false,msg:"Permission denied."};
-  const t=new Date().getDate();const up=subscriptions.filter(s=>s.due-t>=0&&s.due-t<=3);
-  if(!up.length){new Notification("FinTrack",{body:"No bills due in 3 days!"});return{ok:true,msg:"All clear! No bills due soon."};}
-  up.forEach(s=>{const d=s.due-t;new Notification("💸 Bill Due",{body:d===0?`${s.name} DUE TODAY (${fmt(s.amount)})`:`${s.name} due in ${d}d (${fmt(s.amount)})`});});
-  return{ok:true,msg:`${up.length} alert${up.length>1?"s":""} sent!`};
-}
 
 /* ── PIN LOCK ── */
 function PinLock({onUnlock,isSetup}){
@@ -268,7 +260,7 @@ function PinLock({onUnlock,isSetup}){
 }
 
 /* ── DASHBOARD ── */
-function Dashboard({transactions,subscriptions,goals,netWorthHistory,fmt}){
+function Dashboard({transactions,budgets,subscriptions,goals,netWorthHistory,fmt}){
   const G=useG();const isMobile=useIsMobile();const now=new Date();
   const prevMonthDate=new Date(now.getFullYear(),now.getMonth()-1,1);
   const tm=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
@@ -302,8 +294,8 @@ function Dashboard({transactions,subscriptions,goals,netWorthHistory,fmt}){
           <ResponsiveContainer width="100%" height={190}>
             <AreaChart data={months}>
               <defs><linearGradient id="gi" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={G.teal} stopOpacity={.25}/><stop offset="95%" stopColor={G.teal} stopOpacity={0}/></linearGradient><linearGradient id="ge" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={G.red} stopOpacity={.25}/><stop offset="95%" stopColor={G.red} stopOpacity={0}/></linearGradient></defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={G.border}/><XAxis dataKey="month" tick={{fill:G.muted,fontSize:11}} axisLine={false} tickLine={false}/><YAxis tick={{fill:G.muted,fontSize:10}} axisLine={false} tickLine={false} tickFormatter={v=>`$${v/1000}k`}/>
-              <Tooltip content={<TT/>}/>
+              <CartesianGrid strokeDasharray="3 3" stroke={G.border}/><XAxis dataKey="month" tick={{fill:G.muted,fontSize:11}} axisLine={false} tickLine={false}/><YAxis tick={{fill:G.muted,fontSize:10}} axisLine={false} tickLine={false} tickFormatter={v=>fmt(v)}/>
+              <Tooltip content={<TT fmt={fmt}/>}/>
               <Area type="monotone" dataKey="income" name="Income" stroke={G.teal} fill="url(#gi)" strokeWidth={2}/>
               <Area type="monotone" dataKey="expenses" name="Expenses" stroke={G.red} fill="url(#ge)" strokeWidth={2}/>
             </AreaChart>
@@ -311,7 +303,7 @@ function Dashboard({transactions,subscriptions,goals,netWorthHistory,fmt}){
         </Card>
         <Card>
           <div style={{fontWeight:600,marginBottom:12,fontSize:13,color:G.text}}>Spending Breakdown</div>
-          {pieData.length?<><ResponsiveContainer width="100%" height={130}><PieChart><Pie data={pieData} cx="50%" cy="50%" innerRadius={38} outerRadius={62} dataKey="value" paddingAngle={3}>{pieData.map((e,i)=><Cell key={i} fill={CAT_COLOR[e.name]||G.muted}/>)}</Pie><Tooltip formatter={v=>fmt(v)} contentStyle={{background:G.card,border:`1px solid ${G.border}`,borderRadius:8,fontSize:12}}/></PieChart></ResponsiveContainer>
+          {pieData.length?<><ResponsiveContainer width="100%" height={130}><PieChart><Pie data={pieData} cx="50%" cy="50%" innerRadius={38} outerRadius={62} dataKey="value" paddingAngle={3}>{pieData.map((e,i)=><Cell key={i} fill={CAT_COLOR[e.name]||G.muted}/>)}</Pie><Tooltip content={<TT fmt={fmt}/>}/></PieChart></ResponsiveContainer>
           <div style={{display:"flex",flexDirection:"column",gap:5,marginTop:6}}>{pieData.slice(0,4).map(e=><div key={e.name} style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{display:"flex",alignItems:"center",gap:6}}><div style={{width:7,height:7,borderRadius:"50%",background:CAT_COLOR[e.name]||G.muted}}/><span style={{fontSize:11,color:G.muted}}>{e.name}</span></div><span style={{fontSize:11,color:G.text,fontFamily:"monospace"}}>{fmt(e.value)}</span></div>)}</div>
           </>:<div style={{color:G.muted,fontSize:12,textAlign:"center",paddingTop:50}}>No expenses yet</div>}
         </Card>
@@ -334,7 +326,16 @@ function Dashboard({transactions,subscriptions,goals,netWorthHistory,fmt}){
         <StatCard label="Annual Sub Cost"   value={fmt(subscriptions.reduce((a,b)=>a+b.amount,0)*12)} color={G.red} icon="📅"/>
         <StatCard label="Total Saved"       value={fmt(goals.reduce((a,b)=>a+b.saved,0))} color={G.gold} icon="🏆"/>
       </div>
-      <Card><div style={{fontWeight:600,marginBottom:12,fontSize:13,color:G.text}}>Recent Transactions</div><div style={{display:"flex",flexDirection:"column",gap:6}}>{transactions.slice(0,6).map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 12px",background:G.card2,borderRadius:9,border:`1px solid ${G.border}`}}><div style={{display:"flex",alignItems:"center",gap:9}}><div style={{width:7,height:7,borderRadius:"50%",background:t.type==="income"?G.teal:G.red,flexShrink:0}}/><div><div style={{fontSize:13,fontWeight:500,color:G.text}}>{t.desc}</div><div style={{fontSize:11,color:G.muted}}>{t.date} · {t.category}{t.note?` · ${t.note}`:""}</div></div></div><span style={{fontWeight:700,color:t.type==="income"?G.teal:G.red,fontSize:13,fontFamily:"monospace"}}>{t.type==="income"?"+":"-"}{fmt(t.amount)}</span></div>)}</div></Card>
+      <Card>
+        <div style={{fontWeight:600,marginBottom:14,fontSize:13,color:G.text}}>Budget Status This Month</div>
+        {budgets&&budgets.length>0?(
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {budgets.slice(0,5).map(b=>{const s=mt.filter(t=>t.type==="expense"&&t.category===b.category).reduce((a,x)=>a+x.amount,0);const eff=(b.limit||0)+(b.rollover||0);const p=Math.min(100,(s/Math.max(eff,1))*100);const over=s>eff;return <div key={b.category}><div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}><span style={{fontSize:12,color:G.text}}>{b.category}</span><span style={{fontSize:12,fontFamily:"monospace",color:over?G.red:G.muted}}>{fmt(s)} / {fmt(eff)}</span></div><Bar value={s} max={eff} color={over?G.red:p>80?G.gold:CAT_COLOR[b.category]||G.teal} h={5}/></div>;})}
+            {budgets.length>5&&<div style={{fontSize:11,color:G.muted,textAlign:"center"}}>+{budgets.length-5} more categories</div>}
+          </div>
+        ):<div style={{color:G.muted,fontSize:12,textAlign:"center",padding:16}}>No budget set up yet</div>}
+      </Card>
+      <Card><div style={{fontWeight:600,marginBottom:12,fontSize:13,color:G.text}}>Recent Transactions</div><div style={{display:"flex",flexDirection:"column",gap:6}}>{transactions.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,6).map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 12px",background:G.card2,borderRadius:9,border:`1px solid ${G.border}`}}><div style={{display:"flex",alignItems:"center",gap:9}}><div style={{width:7,height:7,borderRadius:"50%",background:t.type==="income"?G.teal:G.red,flexShrink:0}}/><div><div style={{fontSize:13,fontWeight:500,color:G.text}}>{t.desc}</div><div style={{fontSize:11,color:G.muted}}>{t.date} · {t.category}{t.note?` · ${t.note}`:""}</div></div></div><span style={{fontWeight:700,color:t.type==="income"?G.teal:G.red,fontSize:13,fontFamily:"monospace"}}>{t.type==="income"?"+":"-"}{fmt(t.amount)}</span></div>)}</div></Card>
     </div>
   );
 }
@@ -430,16 +431,17 @@ function Budget({transactions,budgets,setBudgets,showToast,fmt}){
   const monthExp=transactions.filter(t=>t.type==="expense"&&t.date.startsWith(tm));
   const getSpent=cat=>monthExp.filter(t=>t.category===cat).reduce((a,b)=>a+b.amount,0);
   const save=async cat=>{const v=parseFloat(newLimit);if(isNaN(v)||v<=0)return;const u=budgets.map(b=>b.category===cat?{...b,limit:v}:b);setBudgets(u);await store.set("budgets",u);setEditing(null);setNewLimit("");showToast("Budget updated");};
-  const addCat=async()=>{if(!newCat.category||!newCat.limit)return;if(budgets.find(b=>b.category===newCat.category)){showToast("Category already exists","error");return;}const u=[...budgets,{category:newCat.category,limit:parseFloat(newCat.limit)}];setBudgets(u);await store.set("budgets",u);setAddModal(false);setNewCat({category:"",limit:""});showToast("Budget category added");};
+  const addCat=async()=>{if(!newCat.category||!newCat.limit)return;if(budgets.find(b=>b.category===newCat.category)){showToast("Category already exists","error");return;}const u=[...budgets,{category:newCat.category,limit:parseFloat(newCat.limit),rollover:0}];setBudgets(u);await store.set("budgets",u);setAddModal(false);setNewCat({category:"",limit:""});showToast("Budget category added");};
   const delCat=async cat=>{if(!window.confirm(`Remove ${cat} budget?`))return;const u=budgets.filter(b=>b.category!==cat);setBudgets(u);await store.set("budgets",u);showToast("Category removed");};
-  const total=budgets.reduce((a,b)=>a+b.limit,0);const spent=budgets.reduce((a,b)=>a+getSpent(b.category),0);
+  const total=budgets.reduce((a,b)=>a+(b.limit||0)+(b.rollover||0),0);const spent=budgets.reduce((a,b)=>a+getSpent(b.category),0);
   const unusedCats=CATEGORIES.filter(c=>!budgets.find(b=>b.category===c));
   return(
     <div style={{display:"flex",flexDirection:"column",gap:18}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><h2 style={{fontSize:22,fontWeight:700,color:G.text,marginBottom:3}}>Monthly Budget</h2><p style={{color:G.muted,fontSize:13}}>{now.toLocaleString("default",{month:"long",year:"numeric"})}</p></div><div style={{display:"flex",gap:8,alignItems:"center"}}><div style={{fontFamily:"monospace",fontSize:16,fontWeight:700,color:spent>total?G.red:G.teal}}>{fmt(spent)}<span style={{color:G.muted,fontSize:12}}> / {fmt(total)}</span></div><Btn small outline onClick={async()=>{const pm=`${new Date().getFullYear()}-${String(new Date().getMonth()).padStart(2,"0")}`;const u=budgets.map(b=>{const prev=transactions.filter(t=>t.type==="expense"&&t.date.startsWith(pm)&&t.category===b.category).reduce((a,x)=>a+x.amount,0);return{...b,rollover:parseFloat(Math.max(0,b.limit-prev).toFixed(2))};});setBudgets(u);await store.set("budgets",u);showToast("Unused budget rolled over!");}}>↩️ Rollover</Btn><Btn small onClick={()=>setAddModal(true)}>+ Add</Btn></div></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><h2 style={{fontSize:22,fontWeight:700,color:G.text,marginBottom:3}}>Monthly Budget</h2><p style={{color:G.muted,fontSize:13}}>{now.toLocaleString("default",{month:"long",year:"numeric"})}</p></div><div style={{display:"flex",gap:8,alignItems:"center"}}><div style={{fontFamily:"monospace",fontSize:16,fontWeight:700,color:spent>total?G.red:G.teal}}>{fmt(spent)}<span style={{color:G.muted,fontSize:12}}> / {fmt(total)}</span></div><Btn small outline onClick={async()=>{const pd=new Date();pd.setMonth(pd.getMonth()-1);const pm=`${pd.getFullYear()}-${String(pd.getMonth()+1).padStart(2,"0")}`;const u=budgets.map(b=>{const prev=transactions.filter(t=>t.type==="expense"&&t.date.startsWith(pm)&&t.category===b.category).reduce((a,x)=>a+x.amount,0);return{...b,rollover:parseFloat(Math.max(0,b.limit-prev).toFixed(2))};});setBudgets(u);await store.set("budgets",u);showToast("Unused budget rolled over!");}}>↩️ Rollover</Btn><Btn small onClick={()=>setAddModal(true)}>+ Add</Btn></div></div>
       <Card><div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}><span style={{fontSize:13,fontWeight:500,color:G.text}}>Overall Health</span><span style={{fontFamily:"monospace",fontSize:13,color:spent>total?G.red:G.teal}}>{total>0?((spent/total)*100).toFixed(0):0}%</span></div><Bar value={spent} max={total} color={spent>total?G.red:G.teal} h={10}/><div style={{display:"flex",justifyContent:"space-between",marginTop:6,fontSize:11,color:G.muted}}><span>{fmt(spent)} spent</span><span>{fmt(Math.max(0,total-spent))} left</span></div></Card>
+      {(() => {const txCats=[...new Set(transactions.filter(t=>t.type==="expense").map(t=>t.category))].filter(c=>!budgets.find(b=>b.category===c)&&c!=="Other");return txCats.length>0?(<div style={{background:`${G.gold}10`,border:`1px solid ${G.gold}30`,borderRadius:12,padding:"12px 16px",fontSize:12,color:G.muted}}>💡 <strong style={{color:G.gold}}>Tip:</strong> You have transactions in {txCats.map(c=><Pill key={c} label={c} color={CAT_COLOR[c]||G.muted}/>).reduce((a,b,i)=>[...a,i>0&&<span key={i}> </span>,b],[])} that don't have a budget yet. Click "+ Add" to track them.</div>):null;})()}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:12}}>
-        {budgets.map(b=>{const s=getSpent(b.category);const over=s>b.limit;const p=Math.min(100,(s/b.limit)*100);const color=over?G.red:p>80?G.gold:CAT_COLOR[b.category]||G.teal;return <Card key={b.category}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{display:"flex",alignItems:"center",gap:7}}><div style={{width:9,height:9,borderRadius:"50%",background:CAT_COLOR[b.category]||G.teal}}/><span style={{fontWeight:600,fontSize:14,color:G.text}}>{b.category}</span></div><div style={{display:"flex",alignItems:"center",gap:6}}>{over&&<Pill label="Over" color={G.red}/>}<button onClick={()=>delCat(b.category)} style={{background:"none",border:"none",color:G.muted,cursor:"pointer",fontSize:12}}>✕</button></div></div><div style={{display:"flex",justifyContent:"space-between",marginBottom:7}}><span style={{fontFamily:"monospace",fontSize:13,color:over?G.red:G.text}}>{fmt(s)}</span><span style={{fontFamily:"monospace",fontSize:11,color:G.muted}}>/ {fmt(b.limit)}</span></div><Bar value={s} max={b.limit} color={color} h={7}/><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:9}}><span style={{fontSize:11,color:G.muted}}>{over?`${fmt(s-b.limit)} over`:`${fmt(b.limit-s)} left`}</span>{editing===b.category?<div style={{display:"flex",gap:5,alignItems:"center"}}><Inp type="number" value={newLimit} onChange={e=>setNewLimit(e.target.value)} style={{width:85,padding:"5px 8px",fontSize:12}}/><Btn small onClick={()=>save(b.category)}>Save</Btn><Btn small outline onClick={()=>setEditing(null)}>✕</Btn></div>:<Btn small outline onClick={()=>{setEditing(b.category);setNewLimit(b.limit);}}>Edit</Btn>}</div></Card>;})}
+        {budgets.map(b=>{const s=getSpent(b.category);const eff=(b.limit||0)+(b.rollover||0);const over=s>eff;const p=Math.min(100,(s/Math.max(eff,1))*100);const color=over?G.red:p>80?G.gold:CAT_COLOR[b.category]||G.teal;return <Card key={b.category}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><div style={{display:"flex",alignItems:"center",gap:7}}><div style={{width:9,height:9,borderRadius:"50%",background:CAT_COLOR[b.category]||G.teal}}/><span style={{fontWeight:600,fontSize:14,color:G.text}}>{b.category}</span></div><div style={{display:"flex",alignItems:"center",gap:6}}>{over&&<Pill label="Over" color={G.red}/>}<button onClick={()=>delCat(b.category)} style={{background:"none",border:"none",color:G.muted,cursor:"pointer",fontSize:12}}>✕</button></div></div><div style={{display:"flex",justifyContent:"space-between",marginBottom:7}}><span style={{fontFamily:"monospace",fontSize:13,color:over?G.red:G.text}}>{fmt(s)}</span><span style={{fontFamily:"monospace",fontSize:11,color:G.muted}}>/ {fmt(eff)}{(b.rollover||0)>0&&<span style={{color:G.green,fontSize:10}}> +{fmt(b.rollover)}</span>}</span></div><Bar value={s} max={eff} color={color} h={7}/><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:9}}><span style={{fontSize:11,color:G.muted}}>{over?`${fmt(s-eff)} over`:`${fmt(eff-s)} left`}</span>{editing===b.category?<div style={{display:"flex",gap:5,alignItems:"center"}}><Inp type="number" value={newLimit} onChange={e=>setNewLimit(e.target.value)} style={{width:85,padding:"5px 8px",fontSize:12}}/><Btn small onClick={()=>save(b.category)}>Save</Btn><Btn small outline onClick={()=>setEditing(null)}>✕</Btn></div>:<Btn small outline onClick={()=>{setEditing(b.category);setNewLimit(b.limit);}}>Edit</Btn>}</div></Card>;})}
       </div>
       {addModal&&<Modal title="Add Budget Category" onClose={()=>setAddModal(false)}><div style={{display:"flex",flexDirection:"column",gap:12}}><Field label="Category"><Sel value={newCat.category} onChange={e=>setNewCat({...newCat,category:e.target.value})}><option value="">-- Select --</option>{unusedCats.map(c=><option key={c}>{c}</option>)}</Sel></Field><Field label="Monthly Limit ($)"><Inp type="number" value={newCat.limit} onChange={e=>setNewCat({...newCat,limit:e.target.value})} placeholder="500"/></Field><div style={{display:"flex",gap:10,marginTop:6}}><Btn onClick={addCat} style={{flex:1}}>Add</Btn><Btn onClick={()=>setAddModal(false)} outline style={{flex:1}}>Cancel</Btn></div></div></Modal>}
     </div>
@@ -460,9 +462,9 @@ function Subscriptions({subscriptions,setSubscriptions,showToast,fmt}){
   const badge=due=>{const d=due-today;if(d===0)return{label:"Due Today",color:G.red};if(d===1)return{label:"Tomorrow",color:G.gold};if(d<=3)return{label:`${d}d left`,color:G.gold};if(d<0)return{label:"Paid",color:G.green};return null;};
   return(
     <div style={{display:"flex",flexDirection:"column",gap:18}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><h2 style={{fontSize:22,fontWeight:700,color:G.text,marginBottom:3}}>Subscriptions</h2><p style={{color:G.muted,fontSize:13}}>{subscriptions.length} recurring bills</p></div><div style={{display:"flex",gap:10}}><Btn outline onClick={async()=>{const r=await doAlerts(subscriptions);setAlertMsg(r.msg);setTimeout(()=>setAlertMsg(""),4000);}}>🔔 Alerts</Btn><Btn onClick={()=>setModal(true)}>+ Add</Btn></div></div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><h2 style={{fontSize:22,fontWeight:700,color:G.text,marginBottom:3}}>Subscriptions</h2><p style={{color:G.muted,fontSize:13}}>{subscriptions.length} recurring bills</p></div><div style={{display:"flex",gap:10}}><Btn outline onClick={async()=>{if(!("Notification"in window)){setAlertMsg("Notifications not supported.");return;}const p=await Notification.requestPermission();if(p!=="granted"){setAlertMsg("Permission denied.");return;}const t=new Date().getDate();const up=subscriptions.filter(s=>s.due-t>=0&&s.due-t<=3);if(!up.length){new Notification("FinTrack",{body:"No bills due in 3 days!"});setAlertMsg("All clear! No bills due soon.");}else{up.forEach(s=>{const d=s.due-t;new Notification("💸 Bill Due",{body:d===0?`${s.name} DUE TODAY (${fmt(s.amount)})`:`${s.name} due in ${d}d (${fmt(s.amount)})`});});setAlertMsg(`${up.length} alert(s) sent!`);}setTimeout(()=>setAlertMsg(""),4000);}}>🔔 Alerts</Btn><Btn onClick={()=>setModal(true)}>+ Add</Btn></div></div>
       {alertMsg&&<div style={{background:`${G.teal}12`,border:`1px solid ${G.teal}30`,borderRadius:10,padding:"10px 14px",fontSize:12,color:G.teal}}>🔔 {alertMsg}</div>}
-      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:12}}><StatCard label="Monthly" value={fmt(total)} color={G.red} icon="🔄"/><StatCard label="Annual" value={fmt(total*12)} color={G.gold} icon="📅"/><StatCard label="Daily" value={fmt(total/30)} color={G.purple} icon="📊"/><StatCard label="Paid This Month" value={`${subscriptions.filter(isPaid).length}/${subscriptions.length}`} color={G.green} icon="✅"/></div>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12}}><StatCard label="Monthly" value={fmt(total)} color={G.red} icon="🔄"/><StatCard label="Annual" value={fmt(total*12)} color={G.gold} icon="📅"/><StatCard label="Daily" value={fmt(total/30)} color={G.purple} icon="📊"/><StatCard label="Paid This Month" value={`${subscriptions.filter(isPaid).length}/${subscriptions.length}`} color={G.green} icon="✅"/></div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:12}}>{subscriptions.map(s=>{const b=badge(s.due);return <Card key={s.id}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div><div style={{fontWeight:700,fontSize:16,marginBottom:6,color:G.text}}>{s.name}</div><Pill label={s.category} color={CAT_COLOR[s.category]||G.muted}/>{b&&<div style={{marginTop:6}}><Pill label={b.label} color={b.color}/></div>}<div style={{marginTop:10,color:G.muted,fontSize:11}}>Day {s.due} monthly</div></div><div style={{textAlign:"right"}}><div style={{fontFamily:"monospace",fontSize:20,fontWeight:700,color:G.red}}>{fmt(s.amount)}</div><div style={{fontSize:11,color:G.muted,marginBottom:10}}>/month</div><div style={{display:"flex",gap:6,justifyContent:"flex-end"}}><button onClick={()=>setEditSub({...s,amount:String(s.amount),due:String(s.due)})} style={{background:"none",border:`1px solid ${G.border}`,color:G.muted,borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11}}>Edit</button><button onClick={()=>del(s.id)} style={{background:"none",border:`1px solid ${G.border}`,color:G.muted,borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11}}>Remove</button>{isPaid(s)?<button onClick={()=>unmarkPaid(s.id)} style={{background:"none",border:`1px solid ${G.border}`,color:G.muted,borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:10}}>Unpay</button>:<button onClick={()=>markPaid(s.id)} style={{background:`${G.green}15`,border:`1px solid ${G.green}40`,color:G.green,borderRadius:6,padding:"4px 8px",cursor:"pointer",fontSize:10,fontWeight:600}}>✓ Paid</button>}</div></div></div></Card>;})}
       {!subscriptions.length&&<Card style={{gridColumn:"1/-1",textAlign:"center",padding:60}}><div style={{fontSize:44,marginBottom:10}}>🔄</div><div style={{fontWeight:600,color:G.text,marginBottom:4}}>No subscriptions yet</div></Card>}</div>
       {modal&&<Modal title="Add Subscription" onClose={()=>setModal(false)}><div style={{display:"flex",flexDirection:"column",gap:12}}><Field label="Service Name"><Inp value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="e.g. Netflix"/></Field><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}><Field label="Amount ($)"><Inp type="number" value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})} placeholder="0.00"/></Field><Field label="Billing Day"><Inp type="number" min="1" max="31" value={form.due} onChange={e=>setForm({...form,due:e.target.value})}/></Field></div><Field label="Category"><Sel value={form.category} onChange={e=>setForm({...form,category:e.target.value})}>{CATEGORIES.map(c=><option key={c}>{c}</option>)}</Sel></Field><div style={{display:"flex",gap:10,marginTop:6}}><Btn onClick={add} style={{flex:1}}>Add</Btn><Btn onClick={()=>setModal(false)} outline style={{flex:1}}>Cancel</Btn></div></div></Modal>}
@@ -611,11 +613,11 @@ function CreditCards({cards,setCards,showToast,fmt}){
 }
 
 /* ── SETTINGS ── */
-function Settings({onClose,isDark,setIsDark,allData,onLock,onClearData,currency,setCurrencyPref}){
+function Settings({onClose,isDark,setIsDark,allData,onLock,onClearData,currency,setCurrencyPref,onImport,showToast}){
   const G=useG();const [msg,setMsg]=useState("");const [msgType,setMsgType]=useState("ok");const fileRef=useRef();
   const [pinModal,setPinModal]=useState(false);const [oldPin,setOldPin]=useState("");const [newPin1,setNewPin1]=useState("");const [newPin2,setNewPin2]=useState("");
   const say=(m,t=3500,type="ok")=>{setMsg(m);setMsgType(type);setTimeout(()=>setMsg(""),t);};
-  const handleImport=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=async ev=>{try{const d=JSON.parse(ev.target.result);for(const k of["transactions","budgets","subscriptions","goals","assets","liabilities","cards"])if(d[k])await store.set(k,d[k]);say("✅ Imported! Refresh the page to load your data.");}catch{say("❌ Invalid backup file.","3500","err");}};r.readAsText(f);};
+  const handleImport=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=async ev=>{try{const d=JSON.parse(ev.target.result);await onImport(d);say("✅ All data imported and updated instantly!");if(showToast)showToast("Backup imported — all tabs updated");}catch{say("❌ Invalid backup file.","3500","err");}};r.readAsText(f);};
   const changePin=async()=>{const saved=await store.get("pin");if(saved&&oldPin!==saved){say("❌ Current PIN is incorrect.","3500","err");return;}if(newPin1.length!==4||!/^\d{4}$/.test(newPin1)){say("❌ PIN must be exactly 4 digits.","3500","err");return;}if(newPin1!==newPin2){say("❌ PINs don't match.","3500","err");return;}await store.set("pin",newPin1);say("✅ PIN updated successfully!");setPinModal(false);setOldPin("");setNewPin1("");setNewPin2("");};
   return(
     <>
@@ -664,7 +666,19 @@ export default function App(){
     if(!locked){reset();const evs=["mousemove","keydown","click","touchstart"];evs.forEach(e=>document.addEventListener(e,reset));return()=>{evs.forEach(e=>document.removeEventListener(e,reset));clearTimeout(lockTimer.current);clearTimeout(warnTimer.current);};}
   },[locked]);
 
-  const allData={transactions,budgets,subscriptions,goals,assets,liabilities,cards};
+  const allData={transactions,budgets,subscriptions,goals,assets,liabilities,cards,recurring};
+
+  // Handle JSON backup import — updates both Supabase AND React state instantly
+  const handleImport=async(d)=>{
+    if(d.transactions){setTransactions(d.transactions);await store.set("transactions",d.transactions);}
+    if(d.budgets){setBudgets(d.budgets);await store.set("budgets",d.budgets);}
+    if(d.subscriptions){setSubscriptions(d.subscriptions);await store.set("subscriptions",d.subscriptions);}
+    if(d.goals){setGoals(d.goals);await store.set("goals",d.goals);}
+    if(d.assets){setAssets(d.assets);await store.set("assets",d.assets);}
+    if(d.liabilities){setLiabilities(d.liabilities);await store.set("liabilities",d.liabilities);}
+    if(d.cards){setCards(d.cards);await store.set("cards",d.cards);}
+    if(d.recurring){setRecurring(d.recurring);await store.set("recurring",d.recurring);}
+  };
   const clearAll=async()=>{if(!window.confirm("Delete ALL data? This cannot be undone."))return;for(const k of["transactions","budgets","subscriptions","goals","assets","liabilities","cards","netWorthHistory","pin","recurring","currency"])await store.set(k,null);setTransactions([]);setBudgets(SEED_BUDGETS);setSubscriptions([]);setGoals([]);setAssets([]);setLiabilities([]);setCards([]);setNetWorthHistory([]);setRecurring([]);setCurrencyPref("USD");setPinSet(false);setLocked(true);setSettingsOpen(false);showToast("All data cleared");};
 
   if (!pinLoaded || !loaded) return (
@@ -716,7 +730,7 @@ export default function App(){
             </div>
           </div>}
           <div className="fade" key={tab}>
-            {tab==="dashboard"    &&<Dashboard transactions={transactions} subscriptions={subscriptions} goals={goals} netWorthHistory={netWorthHistory} fmt={fmt}/>}
+            {tab==="dashboard"    &&<Dashboard transactions={transactions} budgets={budgets} subscriptions={subscriptions} goals={goals} netWorthHistory={netWorthHistory} fmt={fmt}/>}
             {tab==="transactions" &&<Transactions transactions={transactions} setTransactions={setTransactions} showToast={showToast} fmt={fmt}/>}
             {tab==="calendar"     &&<CalendarView transactions={transactions} fmt={fmt}/>}
             {tab==="recurring"    &&<Recurring transactions={transactions} setTransactions={setTransactions} recurring={recurring} setRecurring={setRecurring} showToast={showToast} fmt={fmt}/>}
@@ -736,7 +750,7 @@ export default function App(){
           </button>)}
         </div>}
       </div>
-      {settingsOpen&&<Settings onClose={()=>setSettingsOpen(false)} isDark={isDark} setIsDark={setIsDark} allData={allData} onLock={()=>{setLocked(true);setSettingsOpen(false);}} onClearData={clearAll} currency={currency} setCurrencyPref={async(c)=>{setCurrencyPref(c);await store.set("currency",c);}}/>}
+      {settingsOpen&&<Settings onClose={()=>setSettingsOpen(false)} isDark={isDark} setIsDark={setIsDark} allData={allData} onLock={()=>{setLocked(true);setSettingsOpen(false);}} onClearData={clearAll} currency={currency} setCurrencyPref={async(c)=>{setCurrencyPref(c);await store.set("currency",c);}} onImport={handleImport} showToast={showToast}/>}
     </ThemeCtx.Provider>
   );
 }
