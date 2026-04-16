@@ -15,7 +15,7 @@ const SB_H={"Content-Type":"application/json","apikey":SB_KEY,"Authorization":`B
 const store={
   async get(k){
     try{
-      const r=await fetch(`${SB_URL}/rest/v1/fintrack_data?key=eq.${k}&select=value`,{headers:{...SB_H,"Accept":"application/json"}});
+      const r=await fetch(`${SB_URL}/rest/v1/fintrack_data?key=eq.${encodeURIComponent(k)}&select=value`,{headers:{...SB_H,"Accept":"application/json"}});
       if(!r.ok)return null;
       const d=await r.json();
       return d.length?JSON.parse(d[0].value):null;
@@ -23,16 +23,17 @@ const store={
   },
   async set(k,v){
     if(v===null){
-      try{await fetch(`${SB_URL}/rest/v1/fintrack_data?key=eq.${k}`,{method:"DELETE",headers:SB_H});}catch{}
+      try{await fetch(`${SB_URL}/rest/v1/fintrack_data?key=eq.${encodeURIComponent(k)}`,{method:"DELETE",headers:SB_H});}catch{}
       return;
     }
     try{
-      await fetch(`${SB_URL}/rest/v1/fintrack_data`,{
+      const r=await fetch(`${SB_URL}/rest/v1/fintrack_data`,{
         method:"POST",
         headers:{...SB_H,"Prefer":"resolution=merge-duplicates"},
         body:JSON.stringify({key:k,value:JSON.stringify(v)})
       });
-    }catch{}
+      return r.ok;
+    }catch{return false;}
   }
 };
 
@@ -729,16 +730,16 @@ export default function App(){
               <button onClick={()=>setLocked(true)} style={{background:"none",border:`1px solid ${G.border}`,borderRadius:8,padding:"6px 10px",cursor:"pointer",color:G.muted,fontSize:12}}>🔒</button>
             </div>
           </div>}
-          <div className="fade" key={tab}>
-            {tab==="dashboard"    &&<Dashboard transactions={transactions} budgets={budgets} subscriptions={subscriptions} goals={goals} netWorthHistory={netWorthHistory} fmt={fmt}/>}
-            {tab==="transactions" &&<Transactions transactions={transactions} setTransactions={setTransactions} showToast={showToast} fmt={fmt}/>}
-            {tab==="calendar"     &&<CalendarView transactions={transactions} fmt={fmt}/>}
-            {tab==="recurring"    &&<Recurring transactions={transactions} setTransactions={setTransactions} recurring={recurring} setRecurring={setRecurring} showToast={showToast} fmt={fmt}/>}
-            {tab==="budget"       &&<Budget transactions={transactions} budgets={budgets} setBudgets={setBudgets} showToast={showToast} fmt={fmt}/>}
-            {tab==="subscriptions"&&<Subscriptions subscriptions={subscriptions} setSubscriptions={setSubscriptions} showToast={showToast} fmt={fmt}/>}
-            {tab==="goals"        &&<Goals goals={goals} setGoals={setGoals} showToast={showToast} fmt={fmt}/>}
-            {tab==="networth"     &&<NetWorth assets={assets} setAssets={setAssets} liabilities={liabilities} setLiabilities={setLiabilities} netWorthHistory={netWorthHistory} setNetWorthHistory={setNetWorthHistory} showToast={showToast} fmt={fmt}/>}
-            {tab==="cards"        &&<CreditCards cards={cards} setCards={setCards} showToast={showToast} fmt={fmt}/>}
+          <div>
+            <div style={{display:tab==="dashboard"?"block":"none"}}><Dashboard transactions={transactions} budgets={budgets} subscriptions={subscriptions} goals={goals} netWorthHistory={netWorthHistory} fmt={fmt}/></div>
+            <div style={{display:tab==="transactions"?"block":"none"}}><Transactions transactions={transactions} setTransactions={setTransactions} showToast={showToast} fmt={fmt}/></div>
+            <div style={{display:tab==="calendar"?"block":"none"}}><CalendarView transactions={transactions} fmt={fmt}/></div>
+            <div style={{display:tab==="recurring"?"block":"none"}}><Recurring transactions={transactions} setTransactions={setTransactions} recurring={recurring} setRecurring={setRecurring} showToast={showToast} fmt={fmt}/></div>
+            <div style={{display:tab==="budget"?"block":"none"}}><Budget transactions={transactions} budgets={budgets} setBudgets={setBudgets} showToast={showToast} fmt={fmt}/></div>
+            <div style={{display:tab==="subscriptions"?"block":"none"}}><Subscriptions subscriptions={subscriptions} setSubscriptions={setSubscriptions} showToast={showToast} fmt={fmt}/></div>
+            <div style={{display:tab==="goals"?"block":"none"}}><Goals goals={goals} setGoals={setGoals} showToast={showToast} fmt={fmt}/></div>
+            <div style={{display:tab==="networth"?"block":"none"}}><NetWorth assets={assets} setAssets={setAssets} liabilities={liabilities} setLiabilities={setLiabilities} netWorthHistory={netWorthHistory} setNetWorthHistory={setNetWorthHistory} showToast={showToast} fmt={fmt}/></div>
+            <div style={{display:tab==="cards"?"block":"none"}}><CreditCards cards={cards} setCards={setCards} showToast={showToast} fmt={fmt}/></div>
           </div>
         </div>
         {/* ── MOBILE BOTTOM NAV ── */}
