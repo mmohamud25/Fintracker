@@ -635,8 +635,197 @@ function Settings({onClose,isDark,setIsDark,allData,onLock,onClearData,currency,
   );
 }
 
+/* ── IMPORT TAB ── */
+function ImportTab({transactions,setTransactions,budgets,setBudgets,showToast,fmt}){
+  const G=useG();const isMobile=useIsMobile();const fileRef=useRef();
+  const[step,setStep]=useState("upload");// upload → map → preview → done
+  const[csvData,setCsvData]=useState(null);
+  const[cols,setCols]=useState([]);
+  const[mapping,setMapping]=useState({date:"",desc:"",amount:"",type:"",category:""});
+  const[preview,setPreview]=useState([]);
+  const[importing,setImporting]=useState(false);
+  const[stats,setStats]=useState(null);
+
+  const reset=()=>{setStep("upload");setCsvData(null);setCols([]);setMapping({date:"",desc:"",amount:"",type:"",category:""});setPreview([]);setStats(null);if(fileRef.current)fileRef.current.value="";};
+
+  const handleFile=e=>{
+    const f=e.target.files[0];if(!f)return;
+    Papa.parse(f,{header:true,skipEmptyLines:true,complete:r=>{
+      const c=r.meta.fields||[];const g=ks=>c.find(x=>ks.some(k=>x.toLowerCase().includes(k)))||"";
+      setCsvData(r.data);setCols(c);
+      setMapping({date:g(["date","time","posted","trans"]),desc:g(["desc","name","merchant","memo","payee","narr"]),amount:g(["amount","debit","credit","sum","value","amt"]),type:g(["type","credit","debit","dr","cr"]),category:g(["category","cat","class"])});
+      setStep("map");
+    },error:()=>showToast("Failed to parse CSV — try a different file","error")});
+  };
+
+  const buildPreview=()=>{
+    if(!mapping.date||!mapping.desc||!mapping.amount){showToast("Map Date, Description and Amount first","error");return;}
+    const rows=csvData.map(row=>{
+      const raw=parseFloat((row[mapping.amount]||"0").replace(/[^0-9.\-]/g,""));
+      if(isNaN(raw)||raw===0)return null;
+      const typeVal=(mapping.type&&row[mapping.type])||"";
+      const isInc=raw>0||typeVal.toLowerCase().match(/credit|cr|deposit|incoming/);
+      const desc=(row[mapping.desc]||"").trim()||"Imported";
+      const manualCat=mapping.category&&row[mapping.category]?.trim();
+      const category=CATEGORIES.includes(manualCat)?manualCat:autoCategory(desc);
+      const rawDate=(row[mapping.date]||"").trim();
+      // Try to parse various date formats
+      let date=rawDate.slice(0,10);
+      if(!date.match(/^\d{4}-\d{2}-\d{2}$/)){
+        const d=new Date(rawDate);date=isNaN(d)?todayStr():d.toISOString().slice(0,10);
+      }
+      return{id:uid(),date,desc,amount:Math.abs(raw),type:isInc?"income":"expense",category,note:""};
+    }).filter(Boolean);
+    setPreview(rows);
+    // compute stats
+    const inc=rows.filter(r=>r.type==="income").reduce((a,b)=>a+b.amount,0);
+    const exp=rows.filter(r=>r.type==="expense").reduce((a,b)=>a+b.amount,0);
+    const byCat={};rows.forEach(r=>{if(r.type==="expense")byCat[r.category]=(byCat[r.category]||0)+r.amount;});
+    setStats({total:rows.length,income:inc,expense:exp,byCat});
+    setStep("preview");
+  };
+
+  const doImport=async()=>{
+    setImporting(true);
+    const merged=[...preview,...transactions];
+    setTransactions(merged);
+    await store.set("transactions",merged);
+    // Auto-update budget categories based on imported spending
+    const spendCats=[...new Set(preview.filter(r=>r.type==="expense").map(r=>r.category))];
+    const missingCats=spendCats.filter(c=>!budgets.find(b=>b.category===c));
+    if(missingCats.length){
+      const newBudgets=[...budgets,...missingCats.map(c=>({category:c,limit:500,rollover:0}))];
+      setBudgets(newBudgets);await store.set("budgets",newBudgets);
+    }
+    setStats(s=>({...s,imported:true}));setImporting(false);setStep("done");
+    showToast(`${preview.length} transactions imported — all tabs updated!`);
+  };
+
+  const catSummary=stats?.byCat?Object.entries(stats.byCat).sort((a,b)=>b[1]-a[1]).slice(0,8):[];
+
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:20}}>
+      <div><h2 style={{fontSize:22,fontWeight:700,color:G.text,marginBottom:3}}>📥 Import Bank Transactions</h2>
+        <p style={{color:G.muted,fontSize:13}}>Upload your bank CSV — all tabs (Dashboard, Budget, Calendar, etc.) update instantly after import.</p>
+      </div>
+
+      {/* Step indicator */}
+      <div style={{display:"flex",alignItems:"center",gap:0}}>
+        {[["upload","1. Upload"],["map","2. Map Columns"],["preview","3. Preview"],["done","4. Done"]].map(([s,lbl],i,arr)=>{
+          const active=step===s;const past=["upload","map","preview","done"].indexOf(step)>i;
+          return <div key={s} style={{display:"flex",alignItems:"center",flex:1}}>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,flex:1}}>
+              <div style={{width:28,height:28,borderRadius:"50%",background:past||active?G.teal:G.border,color:past||active?"#fff":G.muted,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,transition:"all .3s"}}>{past?"✓":i+1}</div>
+              <span style={{fontSize:9,color:active?G.teal:past?G.teal:G.muted,fontWeight:active?700:400,whiteSpace:"nowrap"}}>{lbl}</span>
+            </div>
+            {i<arr.length-1&&<div style={{height:2,flex:1,background:past?G.teal:G.border,marginBottom:16,transition:"all .3s"}}/>}
+          </div>;
+        })}
+      </div>
+
+      {/* STEP 1: Upload */}
+      {step==="upload"&&<Card style={{padding:40,textAlign:"center"}}>
+        <div style={{fontSize:52,marginBottom:16}}>🏦</div>
+        <div style={{fontWeight:700,fontSize:18,color:G.text,marginBottom:8}}>Upload Your Bank Statement</div>
+        <div style={{color:G.muted,fontSize:13,marginBottom:24,maxWidth:400,margin:"0 auto 24px"}}>Export a CSV from your bank's website (Chase, Bank of America, Wells Fargo, etc.) and upload it here. Works with any bank CSV format.</div>
+        <Btn onClick={()=>fileRef.current.click()} style={{fontSize:14,padding:"12px 28px"}}>📂 Choose CSV File</Btn>
+        <input ref={fileRef} type="file" accept=".csv,.CSV" onChange={handleFile} style={{display:"none"}}/>
+        <div style={{marginTop:20,display:"flex",justifyContent:"center",gap:20,flexWrap:"wrap"}}>
+          {["Chase","Bank of America","Wells Fargo","Capital One","Citi","Any Bank"].map(b=><span key={b} style={{fontSize:11,color:G.muted,background:G.card2,borderRadius:6,padding:"3px 8px",border:`1px solid ${G.border}`}}>{b}</span>)}
+        </div>
+      </Card>}
+
+      {/* STEP 2: Map Columns */}
+      {step==="map"&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <Card>
+          <div style={{fontWeight:700,fontSize:15,color:G.text,marginBottom:4}}>Map Your CSV Columns</div>
+          <div style={{fontSize:12,color:G.muted,marginBottom:16}}>We auto-detected the best matches below. Adjust if needed.</div>
+          <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12}}>
+            {[["date","📅 Date *","Required"],["desc","📝 Description *","Required"],["amount","💰 Amount *","Required"],["type","↕️ Type","Optional – credit/debit"],["category","🏷️ Category","Optional – we auto-detect"]].map(([k,lbl,hint])=>
+              <Field key={k} label={lbl}><Sel value={mapping[k]} onChange={e=>setMapping({...mapping,[k]:e.target.value})}>
+                <option value="">-- Skip --</option>
+                {cols.map(c=><option key={c} value={c}>{c}</option>)}
+              </Sel><div style={{fontSize:10,color:G.muted,marginTop:3}}>{hint}</div></Field>
+            )}
+          </div>
+        </Card>
+        {/* Live preview of first 3 rows */}
+        {mapping.desc&&csvData?.slice(0,3).length>0&&<Card>
+          <div style={{fontWeight:600,fontSize:13,color:G.text,marginBottom:10}}>🤖 Auto-detected categories (first 3 rows)</div>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {csvData.slice(0,3).map((row,i)=>{
+              const desc=(row[mapping.desc]||"").trim();const cat=autoCategory(desc);
+              const raw=parseFloat((row[mapping.amount]||"0").replace(/[^0-9.\-]/g,""));
+              return<div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",background:G.card2,borderRadius:8,gap:8}}>
+                <span style={{fontSize:12,color:G.text,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{desc||"—"}</span>
+                <Pill label={cat} color={CAT_COLOR[cat]||G.muted}/>
+                <span style={{fontFamily:"monospace",fontSize:12,color:G.muted,flexShrink:0}}>{isNaN(raw)?"?":fmt(Math.abs(raw))}</span>
+              </div>;
+            })}
+          </div>
+        </Card>}
+        <div style={{display:"flex",gap:10}}>
+          <Btn outline onClick={reset} style={{flex:1}}>← Back</Btn>
+          <Btn onClick={buildPreview} style={{flex:2}} disabled={!mapping.date||!mapping.desc||!mapping.amount}>Preview Import →</Btn>
+        </div>
+      </div>}
+
+      {/* STEP 3: Preview */}
+      {step==="preview"&&stats&&<div style={{display:"flex",flexDirection:"column",gap:14}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12}}>
+          <StatCard label="Total Rows" value={stats.total} color={G.teal} icon="📋"/>
+          <StatCard label="Income" value={fmt(stats.income)} color={G.teal} icon="💰"/>
+          <StatCard label="Expenses" value={fmt(stats.expense)} color={G.red} icon="📤"/>
+          <StatCard label="Net" value={fmt(stats.income-stats.expense)} color={(stats.income-stats.expense)>=0?G.teal:G.red} icon="📊"/>
+        </div>
+        {catSummary.length>0&&<Card>
+          <div style={{fontWeight:600,fontSize:13,color:G.text,marginBottom:12}}>Spending by Category (will update Budget tab)</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {catSummary.map(([cat,amt])=><div key={cat}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                <div style={{display:"flex",alignItems:"center",gap:7}}><div style={{width:8,height:8,borderRadius:"50%",background:CAT_COLOR[cat]||G.muted}}/><span style={{fontSize:12,color:G.text}}>{cat}</span></div>
+                <span style={{fontSize:12,fontFamily:"monospace",color:G.muted}}>{fmt(amt)}</span>
+              </div>
+              <Bar value={amt} max={catSummary[0][1]} color={CAT_COLOR[cat]||G.muted} h={5}/>
+            </div>)}
+          </div>
+        </Card>}
+        <Card style={{padding:0,overflow:"hidden"}}>
+          <div style={{display:"grid",gridTemplateColumns:"90px 1fr 110px 110px",padding:"9px 16px",borderBottom:`1px solid ${G.border}`,color:G.muted,fontSize:10,fontWeight:700,letterSpacing:.8,textTransform:"uppercase"}}>
+            <span>Date</span><span>Description</span><span>Category</span><span style={{textAlign:"right"}}>Amount</span>
+          </div>
+          <div style={{maxHeight:320,overflowY:"auto"}}>
+            {preview.slice(0,50).map((t,i)=><div key={t.id} style={{display:"grid",gridTemplateColumns:"90px 1fr 110px 110px",padding:"9px 16px",borderBottom:`1px solid ${G.border}22`,alignItems:"center",background:i%2===0?"transparent":G.card2}}>
+              <span style={{fontSize:11,color:G.muted,fontFamily:"monospace"}}>{t.date}</span>
+              <span style={{fontSize:12,color:G.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.desc}</span>
+              <span><Pill label={t.category} color={CAT_COLOR[t.category]||G.muted}/></span>
+              <span style={{textAlign:"right",fontWeight:700,color:t.type==="income"?G.teal:G.red,fontSize:12,fontFamily:"monospace"}}>{t.type==="income"?"+":"-"}{fmt(t.amount)}</span>
+            </div>)}
+            {preview.length>50&&<div style={{textAlign:"center",padding:12,color:G.muted,fontSize:12}}>…and {preview.length-50} more rows</div>}
+          </div>
+        </Card>
+        <div style={{display:"flex",gap:10}}>
+          <Btn outline onClick={()=>setStep("map")} style={{flex:1}}>← Adjust Mapping</Btn>
+          <Btn onClick={doImport} disabled={importing} style={{flex:2,background:G.teal}}>{importing?"Importing…":`✅ Import ${preview.length} Transactions`}</Btn>
+        </div>
+      </div>}
+
+      {/* STEP 4: Done */}
+      {step==="done"&&<Card style={{textAlign:"center",padding:48}}>
+        <div style={{fontSize:56,marginBottom:16}}>🎉</div>
+        <div style={{fontWeight:800,fontSize:20,color:G.teal,marginBottom:8}}>Import Complete!</div>
+        <div style={{color:G.muted,fontSize:14,marginBottom:8}}>{stats?.total} transactions imported successfully.</div>
+        <div style={{color:G.muted,fontSize:13,marginBottom:28}}>Dashboard, Budget, Calendar, and all other tabs have been updated automatically.</div>
+        <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+          <Btn onClick={reset}>📥 Import Another File</Btn>
+        </div>
+      </Card>}
+    </div>
+  );
+}
+
 /* ── ROOT ── */
-const TABS=[{id:"dashboard",label:"Dashboard",icon:"📊"},{id:"transactions",label:"Transactions",icon:"💳"},{id:"calendar",label:"Calendar",icon:"📅"},{id:"recurring",label:"Recurring",icon:"🔁"},{id:"budget",label:"Budget",icon:"🎯"},{id:"subscriptions",label:"Subscriptions",icon:"🔄"},{id:"goals",label:"Goals",icon:"🏆"},{id:"networth",label:"Net Worth",icon:"💎"},{id:"cards",label:"Cards",icon:"💳"}];
+const TABS=[{id:"dashboard",label:"Dashboard",icon:"📊"},{id:"import",label:"Import",icon:"📥"},{id:"transactions",label:"Transactions",icon:"💳"},{id:"calendar",label:"Calendar",icon:"📅"},{id:"recurring",label:"Recurring",icon:"🔁"},{id:"budget",label:"Budget",icon:"🎯"},{id:"subscriptions",label:"Subscriptions",icon:"🔄"},{id:"goals",label:"Goals",icon:"🏆"},{id:"networth",label:"Net Worth",icon:"💎"},{id:"cards",label:"Cards",icon:"💳"}];
 const SEED_RECURRING=[];
 
 export default function App(){
@@ -732,6 +921,7 @@ export default function App(){
           </div>}
           <div>
             <div style={{display:tab==="dashboard"?"block":"none"}}><Dashboard transactions={transactions} budgets={budgets} subscriptions={subscriptions} goals={goals} netWorthHistory={netWorthHistory} fmt={fmt}/></div>
+            <div style={{display:tab==="import"?"block":"none"}}><ImportTab transactions={transactions} setTransactions={setTransactions} budgets={budgets} setBudgets={setBudgets} showToast={showToast} fmt={fmt}/></div>
             <div style={{display:tab==="transactions"?"block":"none"}}><Transactions transactions={transactions} setTransactions={setTransactions} showToast={showToast} fmt={fmt}/></div>
             <div style={{display:tab==="calendar"?"block":"none"}}><CalendarView transactions={transactions} fmt={fmt}/></div>
             <div style={{display:tab==="recurring"?"block":"none"}}><Recurring transactions={transactions} setTransactions={setTransactions} recurring={recurring} setRecurring={setRecurring} showToast={showToast} fmt={fmt}/></div>
