@@ -67,8 +67,8 @@ const SEED_CARDS=[
 ];
 const SEED_NWH=[{date:"2026-01-01",netWorth:18000,assets:46700,liabilities:28700},{date:"2026-02-01",netWorth:19500,assets:47200,liabilities:27700},{date:"2026-03-01",netWorth:20200,assets:47500,liabilities:27300},{date:"2026-04-08",netWorth:21000,assets:46700,liabilities:24700}];
 
-const CATEGORIES=["Housing","Food","Transport","Entertainment","Health","Shopping","Utilities","Education","Salary","Freelance","Investment","Other"];
-const CAT_COLOR={Housing:"#DC2626",Food:"#D97706",Transport:"#0D9488",Entertainment:"#7C3AED",Health:"#EA580C",Shopping:"#DB2777",Utilities:"#0284C7",Education:"#16A34A",Salary:"#0D9488",Freelance:"#D97706",Investment:"#7C3AED",Other:"#64748B"};
+const CATEGORIES=["Housing","Food","Transport","Entertainment","Health","Shopping","Utilities","Education","Salary","Freelance","Investment","Dining","Coffee","Groceries","Travel","Fitness","Insurance","Childcare","Pets","Personal Care","Clothing","Electronics","Home Improvement","Gifts","Charity","Taxes","Business","Subscriptions","Medical","Other"];
+const CAT_COLOR={Housing:"#DC2626",Food:"#D97706",Transport:"#0D9488",Entertainment:"#7C3AED",Health:"#EA580C",Shopping:"#DB2777",Utilities:"#0284C7",Education:"#16A34A",Salary:"#059669",Freelance:"#D97706",Investment:"#7C3AED",Dining:"#F59E0B",Coffee:"#92400E",Groceries:"#65A30D",Travel:"#0891B2",Fitness:"#DC2626",Insurance:"#6366F1",Childcare:"#EC4899",Pets:"#F97316",PersonalCare:"#A855F7","Personal Care":"#A855F7",Clothing:"#DB2777",Electronics:"#3B82F6","Home Improvement":"#84CC16",HomeImprovement:"#84CC16",Gifts:"#F43F5E",Charity:"#10B981",Taxes:"#6B7280",Business:"#1D4ED8",Subscriptions:"#8B5CF6",Medical:"#EF4444",Other:"#64748B"};
 const CARD_GRADS=[{a:"#1a1a2e",b:"#16213e"},{a:"#922b21",b:"#641e16"},{a:"#1a3a5c",b:"#0d2137"},{a:"#9a7509",b:"#6d5004"},{a:"#00695c",b:"#004d40"},{a:"#4834d4",b:"#2c1fa8"},{a:"#2d3436",b:"#1a1f20"},{a:"#6d1f5e",b:"#4a1040"}];
 
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2);
@@ -82,17 +82,35 @@ const fmtM=m=>m>=12?`${Math.floor(m/12)}y ${m%12}m`:`${m}mo`;
 
 /* ── SMART AUTO-CATEGORIZER ── */
 const CAT_KEYWORDS={
-  Housing:["rent","mortgage","lease","landlord","apartment","property","hoa","housing"],
-  Food:["walmart","kroger","safeway","whole foods","trader joe","aldi","costco","target food","grocery","supermarket","restaurant","mcdonald","burger","pizza","subway","taco","chipotle","starbucks","coffee","cafe","diner","eat","food","dining","doordash","uber eats","grubhub","instacart","domino","kfc","wendy","panera","chick-fil","popeyes","dunkin","tim horton","ihop","applebee","chili","olive garden"],
-  Transport:["gas","shell","bp","chevron","exxon","mobil","76","uber","lyft","taxi","bus","metro","transit","parking","toll","auto","car wash","jiffy lube","valvoline","midas","firestone","autozone","napa","pep boys","enterprise","hertz","avis","delta air","united air","american air","southwest","airline","flight","amtrak","train"],
-  Entertainment:["netflix","hulu","disney","hbo","amazon prime","spotify","apple music","youtube","twitch","steam","xbox","playstation","nintendo","cinema","movie","theater","concert","event","ticket","amc","regal","gaming","game"],
-  Health:["cvs","walgreens","rite aid","pharmacy","doctor","hospital","clinic","dental","vision","gym","planet fitness","la fitness","anytime fitness","peloton","medical","health","insurance","co-pay","copay","prescription","yoga","crossfit"],
-  Shopping:["amazon","ebay","etsy","shopify","nordstrom","macy","jcpenney","gap","h&m","zara","uniqlo","best buy","apple store","microsoft","ikea","wayfair","home depot","lowes","tj maxx","ross","marshalls","burlington","old navy","forever 21","asos"],
-  Utilities:["electric","electricity","gas bill","water","sewer","internet","comcast","att","verizon","tmobile","sprint","xfinity","spectrum","cox","dish","directv","hulu live","phone bill","utility","pg&e","con ed","duke energy","dominion","cell"],
-  Education:["tuition","university","college","school","udemy","coursera","linkedin learning","skillshare","duolingo","textbook","chegg","khan","bootcamp","certification","course fee","class"],
-  Salary:["payroll","salary","direct deposit","paycheck","employer","wages","compensation"],
-  Freelance:["freelance","upwork","fiverr","consulting","client","invoice","contract","self-employed","1099"],
-  Investment:["fidelity","vanguard","schwab","robinhood","coinbase","crypto","bitcoin","stock","dividend","etf","brokerage","ameritrade","e*trade","webull"],
+  Housing:["rent","mortgage","lease","landlord","apartment","property","hoa","housing","realtor","realty"],
+  Dining:["restaurant","mcdonald","burger king","wendy","taco bell","chipotle","panera","chick-fil","popeyes","ihop","applebee","chili","olive garden","denny","subway","five guys","shake shack","in-n-out","whataburger","sonic drive","waffle house","cracker barrel","red lobster","outback","texas roadhouse","cheesecake factory","p.f. chang","hooters","buffalo wild","grubhub","doordash","uber eats","postmates","seamless","caviar","instacart meals","dining","eatery","bistro","grill","kitchen","tavern"],
+  Coffee:["starbucks","dunkin","tim horton","peet","dutch bros","coffee bean","caribou","biggby","philz","blue bottle","intelligentsia","coffee","cafe","espresso","latte","barista"],
+  Groceries:["walmart","kroger","safeway","whole foods","trader joe","aldi","costco","target","publix","heb","wegmans","meijer","food lion","giant","winn-dixie","sprouts","natural grocers","fresh market","lidl","grocery","supermarket","market","food store"],
+  Food:["grocery","supermarket","restaurant","food","dining","eat"],
+  Transport:["shell","bp","chevron","exxon","mobil","speedway","wawa","racetrac","quiktrip","gas station","fuel","uber","lyft","taxi","cab","bus pass","metro card","transit","parking","meter","garage","toll","ez pass","fastrak","car wash","jiffy lube","valvoline","midas","meineke","firestone","goodyear","pep boys","autozone","oreilly","napa auto","enterprise","hertz","avis","budget car","zipcar","delta","united","american air","southwest","frontier","spirit","jetblue","alaska air","airline","airport","flight","amtrak","greyhound","train ticket","transit pass"],
+  Entertainment:["netflix","hulu","disney+","hbo","peacock","paramount","apple tv","prime video","showtime","starz","crunchyroll","spotify","apple music","amazon music","pandora","tidal","youtube premium","twitch","steam","xbox","playstation","nintendo","epic games","roblox","cinema","amc theater","regal","cinemark","movie","concert","ticketmaster","stubhub","eventbrite","comedy club","bowling","arcade","minigolf","escape room","museum","zoo","aquarium","theme park","six flags","disneyland","gaming"],
+  Health:["cvs","walgreens","rite aid","duane reade","navarro","longs drug","health mart","pharmacy","doctor","physician","hospital","urgent care","clinic","dental","dentist","orthodont","vision","optometrist","eye exam","gym","planet fitness","la fitness","anytime fitness","24 hour fitness","equinox","orange theory","f45","peloton","soul cycle","crossfit","ymca","medicare","medicaid","copay","deductible","prescription","rx","lab test","blood test","radiology","physical therapy","chiropractic","mental health","therapy","counseling","psychiatr"],
+  Fitness:["gym","planet fitness","la fitness","anytime fitness","equinox","orange theory","f45","peloton","soul cycle","crossfit","ymca","workout","fitness","sport","athletic","running","yoga","pilates","cycling","swim"],
+  Shopping:["amazon","ebay","etsy","shopify","nordstrom","macy","bloomingdale","neiman","saks","jcpenney","gap","old navy","banana republic","h&m","zara","uniqlo","forever 21","urban outfitters","anthropologie","free people","asos","shein","best buy","apple store","microsoft store","ikea","wayfair","overstock","home depot","lowes","menards","ace hardware","bed bath","crate and barrel","williams sonoma","pottery barn","tj maxx","ross","marshalls","burlington","dollar tree","dollar general","five below","target general","walmart general","costco general"],
+  Clothing:["zara","h&m","gap","old navy","banana republic","uniqlo","forever 21","urban outfitters","nordstrom rack","clothes","clothing","apparel","fashion","shirt","pants","shoes","boots","sneakers","dress","suit","jacket","coat","hat","accessories","jewelry","watch"],
+  Electronics:["best buy","apple store","microsoft","newegg","b&h","adorama","fry","microcenter","gamestop","computer","laptop","iphone","samsung","tablet","ipad","phone","headphones","speaker","camera","drone","monitor","keyboard","mouse","charger","cable","tech","electronics"],
+  Travel:["airbnb","vrbo","booking.com","expedia","hotels.com","marriott","hilton","hyatt","ihg","wyndham","holiday inn","best western","motel","hotel","hostel","resort","vacation rental","trip","travel","airline","airport","delta","united","american","southwest","lufthansa","emirates","british airways","tsa","passport","visa fee","suitcase","luggage","tourism"],
+  "Home Improvement":["home depot","lowes","menards","ace hardware","true value","harbor freight","ikea","wayfair","overstock","plumber","electrician","handyman","contractor","hvac","roofing","flooring","painting","renovation","remodel","appliance","mattress","furniture","lawn","landscaping","pest control","cleaning service","maid","pressure wash"],
+  Insurance:["geico","state farm","allstate","progressive","nationwide","farmers","usaa","liberty mutual","travelers","amica","esurance","insurance","premium","deductible","coverage","policy","renters","homeowners","auto insurance","life insurance","health insurance","dental insurance"],
+  "Personal Care":["supercuts","great clips","fantastic sams","hair salon","barber","haircut","nail salon","spa","massage","facial","wax","beauty supply","ulta","sephora","sally beauty","cvs beauty","target beauty","walgreens beauty","shampoo","conditioner","lotion","skincare","makeup","cosmetics","perfume","cologne","razor","shave","toothbrush","dental care"],
+  Pets:["petco","petsmart","chewy","pet supplies","pet food","vet","veterinar","animal hospital","pet grooming","dog boarding","dog walker","cat litter","dog food","cat food","pet store","animal clinic"],
+  Childcare:["daycare","nursery","preschool","babysitter","nanny","after school","child care","kids","elementary","montessori","tutor","children","pediatric"],
+  Gifts:["etsy gifts","hallmark","1-800-flowers","ftd","teleflora","gift card","amazon gift","target gift","gift wrap","birthday","anniversary","holiday gift","donation gift","charity gift","wedding gift"],
+  Charity:["goodwill","salvation army","red cross","habitat for humanity","unicef","feeding america","st. jude","cancer research","humane society","wwf","sierra club","aclu","naacp","planned parenthood","donation","donate","charity","nonprofit","foundation","fundraiser","pledge","tithe","church offering","mosque","temple","zakat"],
+  Medical:["hospital","emergency room","er visit","urgent care","surgery","operation","procedure","lab work","blood test","mri","ct scan","xray","specialist","cardiolog","dermatolog","oncolog","neurolog","radiology","pharmacy rx","prescription drug","insulin","epipen","inhaler","medical device","medical equipment","ambulance"],
+  Utilities:["electric","electricity","pg&e","con ed","duke energy","dominion","xcel energy","aps","pge","eversource","national grid","gas bill","atmos","nicor","spire","water bill","sewer","trash","garbage","recycling","internet","comcast","xfinity","spectrum","cox","optimum","att internet","verizon fios","centurylink","phone bill","tmobile","verizon","sprint","at&t wireless","boost mobile","cricket wireless","metro pcs","mint mobile","cell phone","utility","municipal"],
+  Education:["tuition","university","college","community college","school","udemy","coursera","linkedin learning","skillshare","masterclass","duolingo","rosetta stone","textbook","chegg","khan academy","bootcamp","coding bootcamp","general assembly","certification","course fee","class fee","student loan","academic","tutor"],
+  Subscriptions:["netflix","hulu","disney+","hbo","spotify","apple music","amazon prime","adobe","microsoft 365","google one","icloud","dropbox","box","notion","slack","zoom","figma","canva","lastpass","1password","vpn","nordvpn","expressvpn","antivirus","norton","mcafee","subscription","recurring","membership","monthly fee"],
+  Business:["office depot","staples","fedex","ups","usps","shipping","postage","business card","accounting","quickbooks","xero","freshbooks","legal","attorney","notary","filing fee","business license","corp","llc","ein","aws","google cloud","azure","hosting","domain","software","saas","b2b","vendor","supplier","wholesale"],
+  Taxes:["irs","tax","turbotax","h&r block","taxact","jackson hewitt","liberty tax","state tax","federal tax","property tax","sales tax","estimated tax","tax prep","accountant","cpa","audit","refund"],
+  Salary:["payroll","salary","direct deposit","paycheck","employer","wages","compensation","w2","income","ach deposit","wire transfer received"],
+  Freelance:["freelance","upwork","fiverr","toptal","99designs","consulting","client payment","invoice","contract work","self-employed","1099","gig","side hustle","project payment"],
+  Investment:["fidelity","vanguard","schwab","robinhood","coinbase","crypto","bitcoin","ethereum","stock","dividend","etf","brokerage","td ameritrade","e*trade","webull","acorns","stash","public.com","m1 finance","sofi invest","capital gain","interest income","mutual fund","roth","ira","401k withdrawal"],
 };
 function autoCategory(desc){
   const d=desc.toLowerCase();
@@ -635,8 +653,264 @@ function Settings({onClose,isDark,setIsDark,allData,onLock,onClearData,currency,
   );
 }
 
+
+/* ── REPORTS TAB ── */
+function Reports({transactions,budgets,fmt}){
+  const G=useG();const isMobile=useIsMobile();
+  const now=new Date();
+  const[monthsBack,setMonthsBack]=useState(12);
+  const[viewCat,setViewCat]=useState("all");
+
+  // Build monthly data for the last N months
+  const monthData=Array.from({length:monthsBack},(_,i)=>{
+    const d=new Date(now.getFullYear(),now.getMonth()-monthsBack+1+i,1);
+    const k=monthKey(d);
+    const mt=transactions.filter(t=>t.date.startsWith(k));
+    const inc=mt.filter(t=>t.type==="income").reduce((a,b)=>a+b.amount,0);
+    const exp=mt.filter(t=>t.type==="expense").reduce((a,b)=>a+b.amount,0);
+    const savings=inc>0?((inc-exp)/inc*100):0;
+    return{month:d.toLocaleString("default",{month:"short",year:"2-digit"}),income:inc,expenses:exp,net:inc-exp,savings:parseFloat(savings.toFixed(1)),key:k};
+  });
+
+  // All-time category breakdown
+  const expTxns=transactions.filter(t=>t.type==="expense");
+  const catTotals={};expTxns.forEach(t=>{catTotals[t.category]=(catTotals[t.category]||0)+t.amount;});
+  const catData=Object.entries(catTotals).sort((a,b)=>b[1]-a[1]).map(([name,value])=>({name,value:parseFloat(value.toFixed(2))}));
+
+  // Filtered transactions for drill-down
+  const filtered=viewCat==="all"?transactions:transactions.filter(t=>t.category===viewCat);
+  const filteredExp=filtered.filter(t=>t.type==="expense");
+
+  // Savings rate over time
+  const avgSavings=monthData.filter(m=>m.income>0).reduce((a,b)=>a+b.savings,0)/Math.max(1,monthData.filter(m=>m.income>0).length);
+  const totalInc=monthData.reduce((a,b)=>a+b.income,0);
+  const totalExp=monthData.reduce((a,b)=>a+b.expenses,0);
+  const bestMonth=monthData.reduce((a,b)=>b.net>a.net?b:a,monthData[0]||{net:0,month:""});
+  const worstMonth=monthData.reduce((a,b)=>b.expenses>a.expenses?b:a,monthData[0]||{expenses:0,month:""});
+
+  // CSV export
+  const exportCSV=()=>{
+    const rows=[["Date","Description","Category","Type","Amount"],...transactions.sort((a,b)=>b.date.localeCompare(a.date)).map(t=>[t.date,t.desc,t.category,t.type,t.amount])];
+    const csv=rows.map(r=>r.map(v=>`"${v}"`).join(",")).join("
+");
+    const b=new Blob([csv],{type:"text/csv"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=`fintrack-export-${todayStr()}.csv`;a.click();URL.revokeObjectURL(u);
+  };
+
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:20}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10}}>
+        <div><h2 style={{fontSize:22,fontWeight:700,color:G.text,marginBottom:3}}>📊 Financial Reports</h2><p style={{color:G.muted,fontSize:13}}>Historical analysis across all your data</p></div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <Sel value={monthsBack} onChange={e=>setMonthsBack(parseInt(e.target.value))} style={{width:140}}>
+            <option value={3}>Last 3 months</option><option value={6}>Last 6 months</option><option value={12}>Last 12 months</option><option value={24}>Last 24 months</option>
+          </Sel>
+          <Btn small outline onClick={exportCSV}>📥 Export CSV</Btn>
+        </div>
+      </div>
+
+      {/* Summary cards */}
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:12}}>
+        <StatCard label="Total Income" value={fmt(totalInc)} color={G.teal} icon="💰" sub={`${monthsBack} months`}/>
+        <StatCard label="Total Spent" value={fmt(totalExp)} color={G.red} icon="📤" sub={`${monthsBack} months`}/>
+        <StatCard label="Avg Savings Rate" value={`${avgSavings.toFixed(1)}%`} color={avgSavings>=20?G.green:avgSavings>=10?G.gold:G.red} icon="🎯"/>
+        <StatCard label="Best Month" value={bestMonth.month||"—"} color={G.purple} sub={bestMonth.net?`+${fmt(bestMonth.net)} net`:""} icon="🏆"/>
+      </div>
+
+      {/* Income vs Expenses chart */}
+      <Card>
+        <div style={{fontWeight:600,marginBottom:14,fontSize:13,color:G.text}}>Income vs Expenses — Monthly</div>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={monthData} barGap={2}>
+            <CartesianGrid strokeDasharray="3 3" stroke={G.border}/>
+            <XAxis dataKey="month" tick={{fill:G.muted,fontSize:10}} axisLine={false} tickLine={false}/>
+            <YAxis tick={{fill:G.muted,fontSize:10}} axisLine={false} tickLine={false} tickFormatter={v=>fmt(v)}/>
+            <Tooltip content={<TT fmt={fmt}/>}/>
+            <RBar dataKey="income" name="Income" fill={G.teal} radius={[3,3,0,0]} fillOpacity={.85}/>
+            <RBar dataKey="expenses" name="Expenses" fill={G.red} radius={[3,3,0,0]} fillOpacity={.85}/>
+          </BarChart>
+        </ResponsiveContainer>
+      </Card>
+
+      {/* Savings rate line */}
+      <Card>
+        <div style={{fontWeight:600,marginBottom:14,fontSize:13,color:G.text}}>Savings Rate % by Month</div>
+        <ResponsiveContainer width="100%" height={160}>
+          <AreaChart data={monthData.filter(m=>m.income>0)}>
+            <defs><linearGradient id="gsr" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={G.green} stopOpacity={.3}/><stop offset="95%" stopColor={G.green} stopOpacity={0}/></linearGradient></defs>
+            <CartesianGrid strokeDasharray="3 3" stroke={G.border}/>
+            <XAxis dataKey="month" tick={{fill:G.muted,fontSize:10}} axisLine={false} tickLine={false}/>
+            <YAxis tick={{fill:G.muted,fontSize:10}} axisLine={false} tickLine={false} tickFormatter={v=>`${v}%`}/>
+            <Tooltip formatter={v=>`${v}%`} contentStyle={{background:G.card,border:`1px solid ${G.border}`,borderRadius:8,fontSize:12}}/>
+            <Area type="monotone" dataKey="savings" name="Savings Rate" stroke={G.green} fill="url(#gsr)" strokeWidth={2}/>
+          </AreaChart>
+        </ResponsiveContainer>
+      </Card>
+
+      {/* Category breakdown */}
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14}}>
+        <Card>
+          <div style={{fontWeight:600,marginBottom:14,fontSize:13,color:G.text}}>All-Time Spending by Category</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <PieChart><Pie data={catData.slice(0,8)} cx="50%" cy="50%" outerRadius={80} dataKey="value" label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`} labelLine={false} fontSize={10}>
+              {catData.slice(0,8).map((e,i)=><Cell key={i} fill={CAT_COLOR[e.name]||G.muted}/>)}
+            </Pie><Tooltip formatter={v=>fmt(v)} contentStyle={{background:G.card,border:`1px solid ${G.border}`,borderRadius:8,fontSize:12}}/></PieChart>
+          </ResponsiveContainer>
+        </Card>
+        <Card>
+          <div style={{fontWeight:600,marginBottom:12,fontSize:13,color:G.text}}>Top Spending Categories</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {catData.slice(0,8).map((c,i)=><div key={c.name}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                <button onClick={()=>setViewCat(viewCat===c.name?"all":c.name)} style={{background:"none",border:"none",cursor:"pointer",display:"flex",alignItems:"center",gap:6,padding:0}}>
+                  <div style={{width:8,height:8,borderRadius:"50%",background:CAT_COLOR[c.name]||G.muted}}/>
+                  <span style={{fontSize:12,color:viewCat===c.name?G.teal:G.text,fontWeight:viewCat===c.name?700:400}}>{c.name}</span>
+                </button>
+                <span style={{fontSize:12,fontFamily:"monospace",color:G.muted}}>{fmt(c.value)}</span>
+              </div>
+              <Bar value={c.value} max={catData[0].value} color={CAT_COLOR[c.name]||G.muted} h={4}/>
+            </div>)}
+          </div>
+          {viewCat!=="all"&&<div style={{marginTop:10,fontSize:11,color:G.teal}}>Filtering by {viewCat} — <button onClick={()=>setViewCat("all")} style={{background:"none",border:"none",color:G.teal,cursor:"pointer",fontSize:11,fontWeight:600}}>Clear</button></div>}
+        </Card>
+      </div>
+
+      {/* Monthly table */}
+      <Card style={{padding:0,overflow:"hidden"}}>
+        <div style={{padding:"14px 18px",borderBottom:`1px solid ${G.border}`,fontWeight:600,fontSize:13,color:G.text}}>Month-by-Month Summary</div>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead><tr style={{background:G.card2}}>
+              {["Month","Income","Expenses","Net","Savings Rate"].map(h=><th key={h} style={{padding:"9px 14px",textAlign:"left",color:G.muted,fontWeight:700,fontSize:10,letterSpacing:.6,textTransform:"uppercase",whiteSpace:"nowrap"}}>{h}</th>)}
+            </tr></thead>
+            <tbody>{[...monthData].reverse().map((m,i)=><tr key={m.key} style={{borderBottom:`1px solid ${G.border}22`,background:i%2===0?"transparent":G.card2}}>
+              <td style={{padding:"9px 14px",color:G.text,fontWeight:500}}>{m.month}</td>
+              <td style={{padding:"9px 14px",color:G.teal,fontFamily:"monospace",fontWeight:600}}>{fmt(m.income)}</td>
+              <td style={{padding:"9px 14px",color:G.red,fontFamily:"monospace",fontWeight:600}}>{fmt(m.expenses)}</td>
+              <td style={{padding:"9px 14px",color:m.net>=0?G.teal:G.red,fontFamily:"monospace",fontWeight:700}}>{m.net>=0?"+":""}{fmt(m.net)}</td>
+              <td style={{padding:"9px 14px"}}><span style={{color:m.savings>=20?G.green:m.savings>=10?G.gold:G.red,fontWeight:600}}>{m.income>0?`${m.savings}%`:"—"}</span></td>
+            </tr>)}</tbody>
+          </table>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* ── SEARCH TAB ── */
+function GlobalSearch({transactions,subscriptions,goals,cards,budgets,fmt,setTab}){
+  const G=useG();const isMobile=useIsMobile();const[q,setQ]=useState("");const iRef=useRef();
+  useEffect(()=>{setTimeout(()=>iRef.current?.focus(),100);},[]);
+  if(!q.trim())return(
+    <div style={{display:"flex",flexDirection:"column",gap:18}}>
+      <div><h2 style={{fontSize:22,fontWeight:700,color:G.text,marginBottom:3}}>🔍 Global Search</h2><p style={{color:G.muted,fontSize:13}}>Search across transactions, subscriptions, goals, and cards</p></div>
+      <Inp ref={iRef} value={q} onChange={e=>setQ(e.target.value)} placeholder="Search everything… e.g. 'netflix', 'rent', 'gym'" style={{fontSize:15,padding:"12px 16px"}}/>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(4,1fr)",gap:12}} >
+        <StatCard label="Transactions" value={transactions.length} icon="💳" color={G.teal}/>
+        <StatCard label="Subscriptions" value={subscriptions.length} icon="🔄" color={G.purple}/>
+        <StatCard label="Goals" value={goals.length} icon="🏆" color={G.gold}/>
+        <StatCard label="Cards" value={cards.length} icon="💳" color={G.red}/>
+      </div>
+    </div>
+  );
+  const ql=q.toLowerCase();
+  const txnR=transactions.filter(t=>t.desc.toLowerCase().includes(ql)||t.category.toLowerCase().includes(ql)||t.date.includes(ql)||(t.note||"").toLowerCase().includes(ql)).slice(0,20);
+  const subR=subscriptions.filter(s=>s.name.toLowerCase().includes(ql)||s.category.toLowerCase().includes(ql)).slice(0,5);
+  const goalR=goals.filter(g=>g.name.toLowerCase().includes(ql)).slice(0,5);
+  const cardR=cards.filter(c=>c.name.toLowerCase().includes(ql)).slice(0,3);
+  const total=txnR.length+subR.length+goalR.length+cardR.length;
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:18}}>
+      <div><h2 style={{fontSize:22,fontWeight:700,color:G.text,marginBottom:3}}>🔍 Global Search</h2></div>
+      <Inp ref={iRef} value={q} onChange={e=>setQ(e.target.value)} placeholder="Search everything…" style={{fontSize:15,padding:"12px 16px"}}/>
+      <div style={{fontSize:12,color:G.muted}}>{total} result{total!==1?"s":""} for "<strong style={{color:G.text}}>{q}</strong>"</div>
+      {txnR.length>0&&<div><div style={{fontWeight:600,fontSize:13,color:G.text,marginBottom:8}}>Transactions ({txnR.length})</div>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {txnR.map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",background:G.card,border:`1px solid ${G.border}`,borderRadius:10}}>
+            <div style={{display:"flex",alignItems:"center",gap:9}}><div style={{width:7,height:7,borderRadius:"50%",background:t.type==="income"?G.teal:G.red,flexShrink:0}}/><div><div style={{fontSize:13,fontWeight:500,color:G.text}}>{t.desc}</div><div style={{fontSize:11,color:G.muted}}>{t.date} · <Pill label={t.category} color={CAT_COLOR[t.category]||G.muted}/></div></div></div>
+            <span style={{fontWeight:700,color:t.type==="income"?G.teal:G.red,fontFamily:"monospace",flexShrink:0}}>{t.type==="income"?"+":"-"}{fmt(t.amount)}</span>
+          </div>)}
+        </div>
+      </div>}
+      {subR.length>0&&<div><div style={{fontWeight:600,fontSize:13,color:G.text,marginBottom:8}}>Subscriptions ({subR.length})</div>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>{subR.map(s=><div key={s.id} style={{display:"flex",justifyContent:"space-between",padding:"10px 14px",background:G.card,border:`1px solid ${G.border}`,borderRadius:10}}><span style={{fontSize:13,color:G.text}}>{s.name} · Day {s.due}</span><span style={{fontFamily:"monospace",color:G.red,fontWeight:600}}>{fmt(s.amount)}/mo</span></div>)}</div>
+      </div>}
+      {goalR.length>0&&<div><div style={{fontWeight:600,fontSize:13,color:G.text,marginBottom:8}}>Goals ({goalR.length})</div>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>{goalR.map(g=><div key={g.id} style={{display:"flex",justifyContent:"space-between",padding:"10px 14px",background:G.card,border:`1px solid ${G.border}`,borderRadius:10}}><span style={{fontSize:13,color:G.text}}>{g.icon} {g.name}</span><span style={{fontFamily:"monospace",color:G.gold,fontWeight:600}}>{fmt(g.saved)} / {fmt(g.target)}</span></div>)}</div>
+      </div>}
+      {total===0&&<Card style={{textAlign:"center",padding:48}}><div style={{fontSize:40,marginBottom:10}}>🔍</div><div style={{color:G.muted,fontSize:14}}>No results found for "{q}"</div></Card>}
+    </div>
+  );
+}
+
+/* ── AUDIT LOG / SESSION LOG ── */
+function AuditLog({auditLog}){
+  const G=useG();
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:18}}>
+      <div><h2 style={{fontSize:22,fontWeight:700,color:G.text,marginBottom:3}}>🔐 Session Audit Log</h2><p style={{color:G.muted,fontSize:13}}>Recent app access and activity events</p></div>
+      <div style={{background:`${G.teal}10`,border:`1px solid ${G.teal}30`,borderRadius:12,padding:"12px 16px",fontSize:12,color:G.muted}}>🔒 Your data is stored in your private Supabase database. This log tracks local session events only — no cloud logging of your financial data.</div>
+      <Card style={{padding:0,overflow:"hidden"}}>
+        <div style={{padding:"12px 18px",borderBottom:`1px solid ${G.border}`,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",color:G.muted,fontSize:10,fontWeight:700,letterSpacing:.8,textTransform:"uppercase"}}>
+          <span>Time</span><span>Event</span><span>Detail</span>
+        </div>
+        <div style={{maxHeight:400,overflowY:"auto"}}>
+          {auditLog.length===0&&<div style={{textAlign:"center",padding:40,color:G.muted,fontSize:13}}>No events yet this session</div>}
+          {auditLog.map((e,i)=><div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",padding:"10px 18px",borderBottom:`1px solid ${G.border}22`,alignItems:"center",background:i%2===0?"transparent":G.card2}}>
+            <span style={{fontSize:11,color:G.muted,fontFamily:"monospace"}}>{e.time}</span>
+            <span style={{fontSize:12,color:G.text,display:"flex",alignItems:"center",gap:6}}><span>{e.icon}</span>{e.event}</span>
+            <span style={{fontSize:11,color:G.muted}}>{e.detail}</span>
+          </div>)}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/* ── SPENDING ALERTS COMPONENT ── */
+function SpendingAlerts({transactions,budgets,subscriptions,fmt}){
+  const G=useG();const now=new Date();const tm=monthKey();
+  const alerts=[];
+  // Budget alerts
+  budgets.forEach(b=>{
+    const spent=transactions.filter(t=>t.type==="expense"&&t.date.startsWith(tm)&&t.category===b.category).reduce((a,x)=>a+x.amount,0);
+    const eff=(b.limit||0)+(b.rollover||0);const pct=eff>0?(spent/eff*100):0;
+    if(pct>=100)alerts.push({type:"over",icon:"🔴",label:`${b.category} OVER budget`,detail:`Spent ${fmt(spent)} of ${fmt(eff)} limit`,color:G.red});
+    else if(pct>=80)alerts.push({type:"warn",icon:"🟡",label:`${b.category} at ${pct.toFixed(0)}%`,detail:`${fmt(eff-spent)} remaining`,color:G.gold});
+  });
+  // Bill alerts
+  const today=now.getDate();
+  subscriptions.filter(s=>s.due-today>=0&&s.due-today<=3).forEach(s=>{
+    const d=s.due-today;alerts.push({type:"bill",icon:"💳",label:`${s.name} due ${d===0?"TODAY":`in ${d}d`}`,detail:fmt(s.amount),color:d===0?G.red:G.gold});
+  });
+  // Savings rate alert
+  const mt=transactions.filter(t=>t.date.startsWith(tm));
+  const inc=mt.filter(t=>t.type==="income").reduce((a,b)=>a+b.amount,0);
+  const exp=mt.filter(t=>t.type==="expense").reduce((a,b)=>a+b.amount,0);
+  if(inc>0){const rate=(inc-exp)/inc*100;if(rate<10)alerts.push({type:"savings",icon:"⚠️",label:"Low savings rate",detail:`Only ${rate.toFixed(1)}% saved this month`,color:G.red});}
+  // Unusual spending
+  const prevM=new Date(now.getFullYear(),now.getMonth()-1,1);const pm=monthKey(prevM);
+  budgets.forEach(b=>{
+    const cur=transactions.filter(t=>t.type==="expense"&&t.date.startsWith(tm)&&t.category===b.category).reduce((a,x)=>a+x.amount,0);
+    const prev=transactions.filter(t=>t.type==="expense"&&t.date.startsWith(pm)&&t.category===b.category).reduce((a,x)=>a+x.amount,0);
+    if(prev>0&&cur>prev*1.5&&cur-prev>50)alerts.push({type:"spike",icon:"📈",label:`${b.category} spending spike`,detail:`+${fmt(cur-prev)} vs last month`,color:G.purple});
+  });
+  return(
+    <div style={{display:"flex",flexDirection:"column",gap:18}}>
+      <div><h2 style={{fontSize:22,fontWeight:700,color:G.text,marginBottom:3}}>🚨 Spending Alerts</h2><p style={{color:G.muted,fontSize:13}}>{alerts.length} active alert{alerts.length!==1?"s":""}</p></div>
+      {alerts.length===0&&<Card style={{textAlign:"center",padding:48}}><div style={{fontSize:48,marginBottom:12}}>✅</div><div style={{fontWeight:700,fontSize:16,color:G.green,marginBottom:6}}>All Clear!</div><div style={{color:G.muted,fontSize:13}}>No budget overruns, no upcoming bills, healthy savings rate.</div></Card>}
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {alerts.map((a,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:14,padding:"14px 18px",background:G.card,border:`1px solid ${a.color}30`,borderLeft:`4px solid ${a.color}`,borderRadius:12,boxShadow:G.shadow}}>
+          <span style={{fontSize:22,flexShrink:0}}>{a.icon}</span>
+          <div style={{flex:1}}><div style={{fontWeight:600,fontSize:13,color:G.text}}>{a.label}</div><div style={{fontSize:12,color:G.muted}}>{a.detail}</div></div>
+          <Pill label={a.type==="over"?"Over Budget":a.type==="warn"?"Warning":a.type==="bill"?"Bill Due":a.type==="savings"?"Low Savings":"Spike"} color={a.color}/>
+        </div>)}
+      </div>
+    </div>
+  );
+}
+
 /* ── IMPORT TAB ── */
-function ImportTab({transactions,setTransactions,budgets,setBudgets,showToast,fmt}){
+function ImportTab({transactions,setTransactions,budgets,setBudgets,showToast,fmt,addAudit}){
   const G=useG();const isMobile=useIsMobile();const fileRef=useRef();
   const[step,setStep]=useState("upload");// upload → map → preview → done
   const[csvData,setCsvData]=useState(null);
@@ -698,7 +972,7 @@ function ImportTab({transactions,setTransactions,budgets,setBudgets,showToast,fm
       setBudgets(newBudgets);await store.set("budgets",newBudgets);
     }
     setStats(s=>({...s,imported:true}));setImporting(false);setStep("done");
-    showToast(`${preview.length} transactions imported — all tabs updated!`);
+    showToast(`${preview.length} transactions imported — all tabs updated!`);if(addAudit)addAudit('CSV Import',`${preview.length} transactions imported`,'📥');
   };
 
   const catSummary=stats?.byCat?Object.entries(stats.byCat).sort((a,b)=>b[1]-a[1]).slice(0,8):[];
@@ -825,7 +1099,7 @@ function ImportTab({transactions,setTransactions,budgets,setBudgets,showToast,fm
 }
 
 /* ── ROOT ── */
-const TABS=[{id:"dashboard",label:"Dashboard",icon:"📊"},{id:"import",label:"Import",icon:"📥"},{id:"transactions",label:"Transactions",icon:"💳"},{id:"calendar",label:"Calendar",icon:"📅"},{id:"recurring",label:"Recurring",icon:"🔁"},{id:"budget",label:"Budget",icon:"🎯"},{id:"subscriptions",label:"Subscriptions",icon:"🔄"},{id:"goals",label:"Goals",icon:"🏆"},{id:"networth",label:"Net Worth",icon:"💎"},{id:"cards",label:"Cards",icon:"💳"}];
+const TABS=[{id:"dashboard",label:"Dashboard",icon:"📊"},{id:"import",label:"Import",icon:"📥"},{id:"reports",label:"Reports",icon:"📈"},{id:"alerts",label:"Alerts",icon:"🚨"},{id:"search",label:"Search",icon:"🔍"},{id:"transactions",label:"Transactions",icon:"💳"},{id:"calendar",label:"Calendar",icon:"📅"},{id:"recurring",label:"Recurring",icon:"🔁"},{id:"budget",label:"Budget",icon:"🎯"},{id:"subscriptions",label:"Subscriptions",icon:"🔄"},{id:"goals",label:"Goals",icon:"🏆"},{id:"networth",label:"Net Worth",icon:"💎"},{id:"cards",label:"Cards",icon:"💳"},{id:"audit",label:"Audit Log",icon:"🔐"}];
 const SEED_RECURRING=[];
 
 export default function App(){
@@ -837,11 +1111,13 @@ export default function App(){
   const [recurring,setRecurring]=useState([]);const [currency,setCurrencyPref]=useState("USD");
   const [loaded,setLoaded]=useState(false);const [settingsOpen,setSettingsOpen]=useState(false);const [lockWarn,setLockWarn]=useState(false);
   const [toast,setToast]=useState(null);
+  const [auditLog,setAuditLog]=useState([]);
   const lockTimer=useRef();const warnTimer=useRef();
   const showToast=(msg,type="success")=>{setToast({msg,type});setTimeout(()=>setToast(null),3000);};
+  const addAudit=(event,detail,icon="📝")=>{const time=new Date().toLocaleTimeString();setAuditLog(l=>[{time,event,detail,icon},...l].slice(0,100));};
   const fmt=n=>{const sym=CURRENCIES.find(c=>c.code===currency)?.symbol||"$";const abs=Math.abs(n);const s=abs.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,",");return`${n<0?"-":""}${sym}${s}`;};
 
-  useEffect(()=>{(async()=>{const pin=await store.get("pin");setPinSet(!!pin);setPinLoaded(true);setTransactions(await store.get("transactions")||SEED_TXN);setBudgets(await store.get("budgets")||SEED_BUDGETS);setSubscriptions(await store.get("subscriptions")||SEED_SUBS);setGoals(await store.get("goals")||SEED_GOALS);setAssets(await store.get("assets")||SEED_ASSETS);setLiabilities(await store.get("liabilities")||SEED_LIAB);setNetWorthHistory(await store.get("netWorthHistory")||SEED_NWH);setCards(await store.get("cards")||SEED_CARDS);setRecurring(await store.get("recurring")||[]);const savedCurrency=await store.get("currency");if(savedCurrency)setCurrencyPref(savedCurrency);setLoaded(true);})();},[]);
+  useEffect(()=>{(async()=>{const pin=await store.get("pin");setPinSet(!!pin);setPinLoaded(true);setTransactions(await store.get("transactions")||SEED_TXN);setBudgets(await store.get("budgets")||SEED_BUDGETS);setSubscriptions(await store.get("subscriptions")||SEED_SUBS);setGoals(await store.get("goals")||SEED_GOALS);setAssets(await store.get("assets")||SEED_ASSETS);setLiabilities(await store.get("liabilities")||SEED_LIAB);setNetWorthHistory(await store.get("netWorthHistory")||SEED_NWH);setCards(await store.get("cards")||SEED_CARDS);setRecurring(await store.get("recurring")||[]);const savedCurrency=await store.get("currency");if(savedCurrency)setCurrencyPref(savedCurrency);setLoaded(true);addAudit("App loaded","Session started","🔓");})();},[]);
 
   // Auto-run recurring transactions
   useEffect(()=>{
@@ -883,7 +1159,7 @@ export default function App(){
 
   if (locked || !pinSet) return (
     <ThemeCtx.Provider value={G}>
-      <PinLock isSetup={!pinSet} onUnlock={()=>{setLocked(false);if(!pinSet)setPinSet(true);}}/>
+      <PinLock isSetup={!pinSet} onUnlock={()=>{setLocked(false);if(!pinSet)setPinSet(true);addAudit("PIN unlock",`Authenticated at ${new Date().toLocaleString()}`,"🔓");}}/>
     </ThemeCtx.Provider>
   );
 
@@ -921,7 +1197,10 @@ export default function App(){
           </div>}
           <div>
             <div style={{display:tab==="dashboard"?"block":"none"}}><Dashboard transactions={transactions} budgets={budgets} subscriptions={subscriptions} goals={goals} netWorthHistory={netWorthHistory} fmt={fmt}/></div>
-            <div style={{display:tab==="import"?"block":"none"}}><ImportTab transactions={transactions} setTransactions={setTransactions} budgets={budgets} setBudgets={setBudgets} showToast={showToast} fmt={fmt}/></div>
+            <div style={{display:tab==="import"?"block":"none"}}><ImportTab transactions={transactions} setTransactions={setTransactions} budgets={budgets} setBudgets={setBudgets} showToast={showToast} fmt={fmt} addAudit={addAudit}/></div>
+            <div style={{display:tab==="reports"?"block":"none"}}><Reports transactions={transactions} budgets={budgets} fmt={fmt}/></div>
+            <div style={{display:tab==="alerts"?"block":"none"}}><SpendingAlerts transactions={transactions} budgets={budgets} subscriptions={subscriptions} fmt={fmt}/></div>
+            <div style={{display:tab==="search"?"block":"none"}}><GlobalSearch transactions={transactions} subscriptions={subscriptions} goals={goals} cards={cards} budgets={budgets} fmt={fmt} setTab={setTab}/></div>
             <div style={{display:tab==="transactions"?"block":"none"}}><Transactions transactions={transactions} setTransactions={setTransactions} showToast={showToast} fmt={fmt}/></div>
             <div style={{display:tab==="calendar"?"block":"none"}}><CalendarView transactions={transactions} fmt={fmt}/></div>
             <div style={{display:tab==="recurring"?"block":"none"}}><Recurring transactions={transactions} setTransactions={setTransactions} recurring={recurring} setRecurring={setRecurring} showToast={showToast} fmt={fmt}/></div>
@@ -930,6 +1209,7 @@ export default function App(){
             <div style={{display:tab==="goals"?"block":"none"}}><Goals goals={goals} setGoals={setGoals} showToast={showToast} fmt={fmt}/></div>
             <div style={{display:tab==="networth"?"block":"none"}}><NetWorth assets={assets} setAssets={setAssets} liabilities={liabilities} setLiabilities={setLiabilities} netWorthHistory={netWorthHistory} setNetWorthHistory={setNetWorthHistory} showToast={showToast} fmt={fmt}/></div>
             <div style={{display:tab==="cards"?"block":"none"}}><CreditCards cards={cards} setCards={setCards} showToast={showToast} fmt={fmt}/></div>
+            <div style={{display:tab==="audit"?"block":"none"}}><AuditLog auditLog={auditLog}/></div>
           </div>
         </div>
         {/* ── MOBILE BOTTOM NAV ── */}
