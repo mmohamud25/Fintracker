@@ -691,8 +691,7 @@ function Reports({transactions,budgets,fmt}){
   // CSV export
   const exportCSV=()=>{
     const rows=[["Date","Description","Category","Type","Amount"],...transactions.sort((a,b)=>b.date.localeCompare(a.date)).map(t=>[t.date,t.desc,t.category,t.type,t.amount])];
-    const csv=rows.map(r=>r.map(v=>`"${v}"`).join(",")).join("
-");
+    const csv=rows.map(r=>r.map(v=>`"${v}"`).join(",")).join("\n");
     const b=new Blob([csv],{type:"text/csv"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=`fintrack-export-${todayStr()}.csv`;a.click();URL.revokeObjectURL(u);
   };
 
