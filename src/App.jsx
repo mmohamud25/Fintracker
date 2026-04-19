@@ -10,7 +10,7 @@ function useIsMobile(){const [m,setM]=useState(()=>window.innerWidth<768);useEff
 
 const SB_URL="https://uesuhjkerdhveyrkcxcs.supabase.co";
 const SB_ANON="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVlc3VoamtlcmRodmV5cmtjeGNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MDUxNTYsImV4cCI6MjA5MTI4MTE1Nn0.abhh7gowMxfxV2ZGLhAriF8NotEHf4AecyrSfpWjX5I";
-const ADMIN_EMAIL="mmohamud25@gmail.com"; // your admin email
+const ADMIN_EMAIL="mohamedmohammud@gmail.com"; // your admin email
 
 // ── AUTH API ──────────────────────────────────────────────────────────────────
 const auth={
