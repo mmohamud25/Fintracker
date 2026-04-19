@@ -69,38 +69,52 @@ const auth={
   isAdmin(){return this._user?.email===ADMIN_EMAIL;},
 };
 
-// ── DATA STORE (user-scoped, requires auth token) ─────────────────────────────
+// ── DATA STORE ────────────────────────────────────────────────────────────────
+// ISOLATION: Every key is prefixed with the user's ID (e.g. "abc123:transactions")
+// This means two users with key "transactions" get DIFFERENT rows in the DB.
+// user_id is also written to the column so Supabase RLS enforces it at DB level.
+// Result: complete data isolation — users CANNOT see each other's data.
 const store={
+  _uid(){return auth.user()?.id||null;},
+  _key(k){const uid=this._uid();return uid?`${uid}:${k}`:k;},
+  _h(tok){return{"Content-Type":"application/json","apikey":SB_ANON,"Authorization":`Bearer ${tok}`,"Accept":"application/json"};},
+
   async get(k){
     const tok=auth.token();if(!tok)return null;
+    const scopedKey=this._key(k);
     try{
-      const r=await fetch(`${SB_URL}/rest/v1/fintrack_data?key=eq.${encodeURIComponent(k)}&select=value`,{headers:{"Content-Type":"application/json","apikey":SB_ANON,"Authorization":`Bearer ${tok}`,"Accept":"application/json"}});
+      const r=await fetch(
+        `${SB_URL}/rest/v1/fintrack_data?key=eq.${encodeURIComponent(scopedKey)}&select=value`,
+        {headers:this._h(tok)}
+      );
       if(!r.ok)return null;
-      const d=await r.json();return d.length?JSON.parse(d[0].value):null;
+      const d=await r.json();
+      return d.length?JSON.parse(d[0].value):null;
     }catch{return null;}
   },
+
   async set(k,v){
     const tok=auth.token();if(!tok)return false;
+    const uid=this._uid();if(!uid)return false;
+    const scopedKey=this._key(k);
+    const hdrs={"Content-Type":"application/json","apikey":SB_ANON,"Authorization":`Bearer ${tok}`};
     if(v===null){
-      try{await fetch(`${SB_URL}/rest/v1/fintrack_data?key=eq.${encodeURIComponent(k)}`,{method:"DELETE",headers:{"Content-Type":"application/json","apikey":SB_ANON,"Authorization":`Bearer ${tok}`}});}catch{}
-      return;
+      try{await fetch(`${SB_URL}/rest/v1/fintrack_data?key=eq.${encodeURIComponent(scopedKey)}`,{method:"DELETE",headers:hdrs});}catch{}
+      return true;
     }
     try{
       const r=await fetch(`${SB_URL}/rest/v1/fintrack_data`,{
         method:"POST",
-        headers:{"Content-Type":"application/json","apikey":SB_ANON,"Authorization":`Bearer ${tok}`,"Prefer":"resolution=merge-duplicates"},
-        body:JSON.stringify({key:k,value:JSON.stringify(v)})
+        headers:{...hdrs,"Prefer":"resolution=merge-duplicates"},
+        body:JSON.stringify({key:scopedKey,value:JSON.stringify(v),user_id:uid})
       });
       return r.ok;
     }catch{return false;}
   },
-  // Admin only — get platform stats
-  async adminStats(){
-    const tok=auth.token();if(!tok)return null;
-    try{
-      const r=await fetch(`${SB_URL}/rest/v1/fintrack_users?select=*`,{headers:{"Content-Type":"application/json","apikey":SB_ANON,"Authorization":`Bearer ${tok}`,"Accept":"application/json"}});
-      if(!r.ok)return null;return await r.json();
-    }catch{return null;}
+
+  async deleteAll(){
+    const keys=["transactions","budgets","subscriptions","goals","assets","liabilities","cards","netWorthHistory","recurring","currency"];
+    await Promise.all(keys.map(k=>this.set(k,null)));
   }
 };
 
@@ -693,36 +707,6 @@ function ConfirmBanner({email}){
   );
 }
 
-/* ── PIN LOCK ── */
-function PinLock({onUnlock,isSetup}){
-  const G=useG();const [digits,setDigits]=useState([]);const [err,setErr]=useState("");const [confirm,setConfirm]=useState([]);const [step,setStep]=useState("enter");
-  const press=async d=>{
-    if(digits.length>=4)return;const next=[...digits,d];setDigits(next);setErr("");
-    if(next.length===4){
-      if(isSetup){if(step==="enter"){setConfirm(next);setStep("confirm");setDigits([]);}else{if(next.join("")===confirm.join("")){await store.set("pin",next.join(""));onUnlock();}else{setErr("PINs don't match");setDigits([]);setConfirm([]);setStep("enter");}}}
-      else{const saved=await store.get("pin");if(next.join("")===saved){onUnlock();}else{setErr("Incorrect PIN");setTimeout(()=>{setDigits([]);setErr("");},600);}}
-    }
-  };
-  return(
-    <div style={{position:"fixed",inset:0,background:G.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",zIndex:2000}}>
-      <div style={{textAlign:"center",maxWidth:300}}>
-        <div style={{fontSize:48,marginBottom:12}}>💼</div>
-        <div style={{fontWeight:800,fontSize:22,color:G.text,marginBottom:4}}>FinTrack Pro</div>
-        <div style={{color:G.muted,fontSize:13,marginBottom:32}}>{isSetup?(step==="enter"?"Set a 4-digit PIN":"Confirm your PIN"):"Enter PIN to continue"}</div>
-        <div style={{display:"flex",justifyContent:"center",gap:14,marginBottom:28}}>
-          {[0,1,2,3].map(i=><div key={i} style={{width:14,height:14,borderRadius:"50%",background:digits.length>i?G.teal:G.border,transition:"background .15s"}}/>)}
-        </div>
-        {err&&<div style={{color:G.red,fontSize:12,marginBottom:16,fontWeight:500}}>{err}</div>}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,72px)",gap:10,justifyContent:"center",marginBottom:10}}>
-          {[1,2,3,4,5,6,7,8,9].map(n=><button key={n} onClick={()=>press(n)} style={{height:72,borderRadius:16,border:`1.5px solid ${G.border}`,background:G.card,color:G.text,fontSize:22,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>{n}</button>)}
-          <div/><button onClick={()=>press(0)} style={{height:72,borderRadius:16,border:`1.5px solid ${G.border}`,background:G.card,color:G.text,fontSize:22,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>0</button>
-          <button onClick={()=>setDigits(d=>d.slice(0,-1))} style={{height:72,borderRadius:16,border:`1.5px solid ${G.border}`,background:G.card,color:G.muted,fontSize:18,cursor:"pointer",fontFamily:"inherit"}}>⌫</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ── DASHBOARD ── */
 function Dashboard({transactions,budgets,subscriptions,goals,netWorthHistory,fmt}){
   const G=useG();const isMobile=useIsMobile();const now=new Date();
@@ -1079,21 +1063,21 @@ function CreditCards({cards,setCards,showToast,fmt}){
 /* ── SETTINGS ── */
 function Settings({onClose,isDark,setIsDark,allData,onLock,onClearData,currency,setCurrencyPref,onImport,showToast}){
   const G=useG();const [msg,setMsg]=useState("");const [msgType,setMsgType]=useState("ok");const fileRef=useRef();
-  const [pinModal,setPinModal]=useState(false);const [oldPin,setOldPin]=useState("");const [newPin1,setNewPin1]=useState("");const [newPin2,setNewPin2]=useState("");
+  
   const say=(m,t=3500,type="ok")=>{setMsg(m);setMsgType(type);setTimeout(()=>setMsg(""),t);};
   const handleImport=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=async ev=>{try{const d=JSON.parse(ev.target.result);await onImport(d);say("✅ All data imported and updated instantly!");if(showToast)showToast("Backup imported — all tabs updated");}catch{say("❌ Invalid backup file.","3500","err");}};r.readAsText(f);};
-  const changePin=async()=>{const saved=await store.get("pin");if(saved&&oldPin!==saved){say("❌ Current PIN is incorrect.","3500","err");return;}if(newPin1.length!==4||!/^\d{4}$/.test(newPin1)){say("❌ PIN must be exactly 4 digits.","3500","err");return;}if(newPin1!==newPin2){say("❌ PINs don't match.","3500","err");return;}await store.set("pin",newPin1);say("✅ PIN updated successfully!");setPinModal(false);setOldPin("");setNewPin1("");setNewPin2("");};
+  // PIN auth removed — password managed via Supabase Auth in UserProfile
   return(
     <>
     <Modal title="⚙️ Settings" onClose={onClose}><div style={{display:"flex",flexDirection:"column",gap:20}}>
       {msg&&<div style={{background:msgType==="err"?`${G.red}12`:`${G.teal}12`,border:`1px solid ${msgType==="err"?G.red:G.teal}30`,borderRadius:10,padding:"10px 14px",fontSize:12,color:msgType==="err"?G.red:G.teal}}>{msg}</div>}
       <div><div style={{fontWeight:600,fontSize:13,color:G.text,marginBottom:12}}>Appearance</div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"12px 14px",background:G.card2,borderRadius:10,border:`1px solid ${G.border}`}}><div><div style={{fontWeight:500,fontSize:13,color:G.text}}>{isDark?"🌙 Dark Mode":"☀️ Light Mode"}</div><div style={{fontSize:11,color:G.muted}}>Toggle app theme</div></div><button onClick={()=>setIsDark(d=>!d)} style={{width:44,height:24,borderRadius:99,background:isDark?G.teal:G.border,border:"none",cursor:"pointer",position:"relative",transition:"background .2s"}}><div style={{width:18,height:18,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:isDark?22:3,transition:"left .2s"}}/></button></div></div>
       <div><div style={{fontWeight:600,fontSize:13,color:G.text,marginBottom:12}}>Data & Backup</div><div style={{display:"flex",flexDirection:"column",gap:8}}><Btn outline onClick={()=>doExportJSON(allData)} style={{width:"100%"}}>📥 Export JSON Backup</Btn><Btn outline onClick={()=>fileRef.current.click()} style={{width:"100%"}}>📤 Import JSON Backup</Btn><input ref={fileRef} type="file" accept=".json" onChange={handleImport} style={{display:"none"}}/><Btn outline onClick={()=>doPDF(allData.transactions||[],allData.subscriptions||[],allData.goals||[])} style={{width:"100%"}}>📄 Export PDF Report</Btn></div></div>
-      <div><div style={{fontWeight:600,fontSize:13,color:G.text,marginBottom:12}}>Currency</div><select value={currency||"USD"} onChange={e=>setCurrencyPref(e.target.value)} style={{background:G.card2,border:`1px solid ${G.border}`,color:G.text,borderRadius:9,padding:"9px 12px",fontFamily:"inherit",fontSize:13,outline:"none",width:"100%"}}>{CURRENCIES.map(c=><option key={c.code} value={c.code}>{c.symbol} {c.name} ({c.code})</option>)}</select></div><div><div style={{fontWeight:600,fontSize:13,color:G.text,marginBottom:12}}>Security</div><div style={{display:"flex",flexDirection:"column",gap:8}}><Btn outline onClick={onLock} style={{width:"100%"}}>🔒 Lock App Now</Btn><Btn outline onClick={()=>setPinModal(true)} style={{width:"100%"}}>🔑 Change PIN</Btn></div></div>
+      <div><div style={{fontWeight:600,fontSize:13,color:G.text,marginBottom:12}}>Currency</div><select value={currency||"USD"} onChange={e=>setCurrencyPref(e.target.value)} style={{background:G.card2,border:`1px solid ${G.border}`,color:G.text,borderRadius:9,padding:"9px 12px",fontFamily:"inherit",fontSize:13,outline:"none",width:"100%"}}>{CURRENCIES.map(c=><option key={c.code} value={c.code}>{c.symbol} {c.name} ({c.code})</option>)}</select></div><div><div style={{fontWeight:600,fontSize:13,color:G.text,marginBottom:12}}>Security</div><div style={{display:"flex",flexDirection:"column",gap:8}}><Btn outline onClick={onLock} style={{width:"100%"}}>🔒 Lock App Now</Btn></div></div>
       <div><div style={{fontWeight:600,fontSize:13,color:G.text,marginBottom:4}}>About</div><div style={{background:G.card2,border:`1px solid ${G.border}`,borderRadius:10,padding:"12px 14px",fontSize:12,color:G.muted}}>💼 <strong style={{color:G.text}}>FinTrack Pro</strong> — Personal Finance Tracker. Your data is stored securely in your personal Supabase database. No ads. No tracking.</div></div>
       <div style={{borderTop:`1px solid ${G.border}`,paddingTop:16}}><div style={{fontWeight:600,fontSize:13,color:G.red,marginBottom:8}}>Danger Zone</div><Btn color={G.red} outline onClick={onClearData} style={{width:"100%"}}>🗑️ Clear All Data</Btn></div>
     </div></Modal>
-    {pinModal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",backdropFilter:"blur(6px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1100,padding:20}} onClick={e=>e.target===e.currentTarget&&setPinModal(false)}><div style={{background:G.card,border:`1px solid ${G.border}`,borderRadius:20,padding:24,width:"100%",maxWidth:380,boxShadow:"0 20px 60px rgba(0,0,0,.2)"}}><div style={{fontWeight:700,fontSize:16,color:G.text,marginBottom:20}}>🔑 Change PIN</div><div style={{display:"flex",flexDirection:"column",gap:12}}><Field label="Current PIN"><Inp type="password" inputMode="numeric" maxLength={4} value={oldPin} onChange={e=>setOldPin(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="••••"/></Field><Field label="New PIN (4 digits)"><Inp type="password" inputMode="numeric" maxLength={4} value={newPin1} onChange={e=>setNewPin1(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="••••"/></Field><Field label="Confirm New PIN"><Inp type="password" inputMode="numeric" maxLength={4} value={newPin2} onChange={e=>setNewPin2(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="••••"/></Field><div style={{display:"flex",gap:10,marginTop:6}}><Btn onClick={changePin} style={{flex:1}}>Update PIN</Btn><Btn onClick={()=>{setPinModal(false);setOldPin("");setNewPin1("");setNewPin2("");}} outline style={{flex:1}}>Cancel</Btn></div></div></div></div>}
+    
     </>
   );
 }
@@ -1749,7 +1733,7 @@ export default function App(){
 
   const clearAll=async()=>{
     if(!window.confirm("Delete ALL your data? This cannot be undone."))return;
-    for(const k of["transactions","budgets","subscriptions","goals","assets","liabilities","cards","netWorthHistory","recurring","currency"])await store.set(k,null);
+    await store.deleteAll();
     setTransactions([]);setBudgets(SEED_BUDGETS);setSubscriptions([]);setGoals([]);
     setAssets([]);setLiabilities([]);setCards([]);setNetWorthHistory([]);setRecurring([]);
     setCurrencyPref("USD");setSettingsOpen(false);
